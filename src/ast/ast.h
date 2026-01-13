@@ -54,10 +54,12 @@ typedef struct Type
     struct Type **args; // For GENERIC args.
     int arg_count;
     int is_const;
-    int array_size;  // For fixed-size arrays [T; N].
-    int is_varargs;  // For function types (...).
-    int is_restrict; // For restrict pointers.
-    int has_drop;    // For RAII: does this type implement Drop?
+    union {
+        int array_size;  // For fixed-size arrays [T; N].
+        int is_varargs;  // For function types (...).
+        int is_restrict; // For restrict pointers.
+        int has_drop;    // For RAII: does this type implement Drop?
+    };
 } Type;
 
 // ** AST Node Types **
