@@ -29,72 +29,76 @@
 // ** GLOBAL STATE **
 extern char *g_current_filename;
 
-typedef enum {
-  TOK_EOF = 0,
-  TOK_IDENT,
-  TOK_INT,
-  TOK_FLOAT,
-  TOK_STRING,
-  TOK_FSTRING,
-  TOK_CHAR,
-  TOK_LPAREN,
-  TOK_RPAREN,
-  TOK_LBRACE,
-  TOK_RBRACE,
-  TOK_LBRACKET,
-  TOK_RBRACKET,
-  TOK_LANGLE,
-  TOK_RANGLE,
-  TOK_COMMA,
-  TOK_COLON,
-  TOK_SEMICOLON,
-  TOK_OP,
-  TOK_AT,
-  TOK_DOTDOT,
-  TOK_ARROW,
-  TOK_PIPE,
-  TOK_TEST,
-  TOK_ASSERT,
-  TOK_SIZEOF,
-  TOK_DEFER,
-  TOK_AUTOFREE,
-  TOK_QUESTION,
-  TOK_USE,
-  TOK_QQ,
-  TOK_QQ_EQ,
-  TOK_Q_DOT,
-  TOK_DCOLON,
-  TOK_TRAIT,
-  TOK_IMPL,
-  TOK_AND,
-  TOK_OR,
-  TOK_FOR,
-  TOK_COMPTIME,
-  TOK_ELLIPSIS,
-  TOK_UNION,
-  TOK_ASM,
-  TOK_VOLATILE,
-  TOK_MUT,
-  TOK_ASYNC,
-  TOK_AWAIT,
-  TOK_PREPROC,
-  TOK_COMMENT,
-  TOK_UNKNOWN
+typedef enum
+{
+    TOK_EOF = 0,
+    TOK_IDENT,
+    TOK_INT,
+    TOK_FLOAT,
+    TOK_STRING,
+    TOK_FSTRING,
+    TOK_CHAR,
+    TOK_LPAREN,
+    TOK_RPAREN,
+    TOK_LBRACE,
+    TOK_RBRACE,
+    TOK_LBRACKET,
+    TOK_RBRACKET,
+    TOK_LANGLE,
+    TOK_RANGLE,
+    TOK_COMMA,
+    TOK_COLON,
+    TOK_SEMICOLON,
+    TOK_OP,
+    TOK_AT,
+    TOK_DOTDOT,
+    TOK_ARROW,
+    TOK_PIPE,
+    TOK_TEST,
+    TOK_ASSERT,
+    TOK_SIZEOF,
+    TOK_DEFER,
+    TOK_AUTOFREE,
+    TOK_QUESTION,
+    TOK_USE,
+    TOK_QQ,
+    TOK_QQ_EQ,
+    TOK_Q_DOT,
+    TOK_DCOLON,
+    TOK_TRAIT,
+    TOK_IMPL,
+    TOK_AND,
+    TOK_OR,
+    TOK_FOR,
+    TOK_COMPTIME,
+    TOK_ELLIPSIS,
+    TOK_UNION,
+    TOK_ASM,
+    TOK_VOLATILE,
+    TOK_MUT,
+    TOK_ASYNC,
+    TOK_AWAIT,
+    TOK_PREPROC,
+    TOK_ALIAS,
+    TOK_COMMENT,
+    TOK_UNKNOWN
 } TokenType;
 
-typedef struct {
-  TokenType type;
-  const char *start;
-  int len;
-  int line;
-  int col;
+typedef struct
+{
+    TokenType type;
+    const char *start;
+    int len;
+    int line;
+    int col;
 } Token;
 
-typedef struct {
-  const char *src;
-  int pos;
-  int line;
-  int col;
+typedef struct
+{
+    const char *src;
+    int pos;
+    int line;
+    int col;
 } Lexer;
 
 void lexer_init(Lexer *l, const char *src);
@@ -134,12 +138,10 @@ int levenshtein(const char *s1, const char *s2);
 void zpanic_with_suggestion(Token t, const char *msg, const char *suggestion);
 
 // Specific error types.
-void error_undefined_function(Token t, const char *func_name,
-                              const char *suggestion);
-void error_wrong_arg_count(Token t, const char *func_name, int expected,
-                           int got);
-void error_undefined_field(Token t, const char *struct_name,
-                           const char *field_name, const char *suggestion);
+void error_undefined_function(Token t, const char *func_name, const char *suggestion);
+void error_wrong_arg_count(Token t, const char *func_name, int expected, int got);
+void error_undefined_field(Token t, const char *struct_name, const char *field_name,
+                           const char *suggestion);
 void error_type_expected(Token t, const char *expected, const char *got);
 void error_cannot_index(Token t, const char *type_name);
 
@@ -149,44 +151,41 @@ void zwarn_at(Token t, const char *fmt, ...);
 
 // Specific warnings.
 void warn_unused_variable(Token t, const char *var_name);
-void warn_unused_parameter(Token t, const char *param_name,
-                           const char *func_name);
+void warn_unused_parameter(Token t, const char *param_name, const char *func_name);
 void warn_shadowing(Token t, const char *var_name);
 void warn_unreachable_code(Token t);
-void warn_implicit_conversion(Token t, const char *from_type,
-                              const char *to_type);
-void warn_narrowing_conversion(Token t, const char *from_type,
-                               const char *to_type);
+void warn_implicit_conversion(Token t, const char *from_type, const char *to_type);
+void warn_narrowing_conversion(Token t, const char *from_type, const char *to_type);
 void warn_missing_return(Token t, const char *func_name);
 void warn_comparison_always_true(Token t, const char *reason);
 void warn_comparison_always_false(Token t, const char *reason);
 void warn_division_by_zero(Token t);
 void warn_integer_overflow(Token t, const char *type_name, long long value);
 void warn_array_bounds(Token t, int index, int size);
-void warn_format_string(Token t, int arg_num, const char *expected,
-                        const char *got);
+void warn_format_string(Token t, int arg_num, const char *expected, const char *got);
 void warn_null_pointer(Token t, const char *expr);
 
 // ** Compiler Config **
-typedef struct {
-  char *input_file;
-  char *output_file;
+typedef struct
+{
+    char *input_file;
+    char *output_file;
 
-  // Modes.
-  int mode_run;        // 1 if 'run' command.
-  int mode_check;      // 1 if 'check' command or --check.
-  int emit_c;          // 1 if --emit-c (keep C file).
-  int verbose;         // 1 if --verbose.
-  int quiet;           // 1 if --quiet.
-  int repl_mode;       // 1 if --repl (internal flag for REPL usage).
-  int is_freestanding; // 1 if --freestanding.
-  int mode_transpile;  // 1 if 'transpile' command.
+    // Modes.
+    int mode_run;        // 1 if 'run' command.
+    int mode_check;      // 1 if 'check' command or --check.
+    int emit_c;          // 1 if --emit-c (keep C file).
+    int verbose;         // 1 if --verbose.
+    int quiet;           // 1 if --quiet.
+    int repl_mode;       // 1 if --repl (internal flag for REPL usage).
+    int is_freestanding; // 1 if --freestanding.
+    int mode_transpile;  // 1 if 'transpile' command.
 
-  // GCC Flags accumulator.
-  char gcc_flags[4096];
+    // GCC Flags accumulator.
+    char gcc_flags[4096];
 
-  // C Compiler selection (default: gcc)
-  char cc[64];
+    // C Compiler selection (default: gcc)
+    char cc[64];
 } CompilerConfig;
 
 extern CompilerConfig g_config;

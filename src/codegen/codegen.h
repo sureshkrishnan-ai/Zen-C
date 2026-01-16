@@ -16,11 +16,9 @@ void codegen_expression(ParserContext *ctx, ASTNode *node, FILE *out);
 // Utility functions (codegen_utils.c).
 char *infer_type(ParserContext *ctx, ASTNode *node);
 ASTNode *find_struct_def_codegen(ParserContext *ctx, const char *name);
-char *get_field_type_str(ParserContext *ctx, const char *struct_name,
-                         const char *field_name);
+char *get_field_type_str(ParserContext *ctx, const char *struct_name, const char *field_name);
 char *extract_call_args(const char *args);
-void emit_var_decl_type(ParserContext *ctx, FILE *out, const char *type_str,
-                        const char *var_name);
+void emit_var_decl_type(ParserContext *ctx, FILE *out, const char *type_str, const char *var_name);
 char *replace_string_type(const char *args);
 const char *parse_original_method_name(const char *mangled);
 void emit_auto_type(ParserContext *ctx, ASTNode *init_expr, Token t, FILE *out);

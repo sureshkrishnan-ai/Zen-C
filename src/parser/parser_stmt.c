@@ -1358,16 +1358,31 @@ ASTNode *parse_const(ParserContext *ctx, Lexer *l)
 
 ASTNode *parse_type_alias(ParserContext *ctx, Lexer *l)
 {
-    lexer_next(l);
+    lexer_next(l); // consume 'type' or 'alias'
     Token n = lexer_next(l);
-    lexer_next(l);
+    if (n.type != TOK_IDENT)
+    {
+        zpanic_at(n, "Expected identifier for type alias");
+    }
+
+    lexer_next(l); // consume '='
+
     char *o = parse_type(ctx, l);
-    lexer_next(l);
+    // printf("DEBUG: parse_type returned '%s'\n", o);
+
+    lexer_next(l); // consume ';' (parse_type doesn't consume it? parse_type calls parse_type_formal
+                   // which doesn't consume ;?)
+    // Note: parse_type_stmt usually expects ; but parse_type just parses type expression.
+    // Check previous implementation: it had lexer_next(l) at end. This assumes ;.
+
     ASTNode *node = ast_create(NODE_TYPE_ALIAS);
     node->type_alias.alias = xmalloc(n.len + 1);
     strncpy(node->type_alias.alias, n.start, n.len);
     node->type_alias.alias[n.len] = 0;
     node->type_alias.original_type = o;
+
+    register_type_alias(ctx, node->type_alias.alias, o);
+
     return node;
 }
 
@@ -3260,6 +3275,7 @@ ASTNode *parse_struct(ParserContext *ctx, Lexer *l, int is_union)
     {
         skip_comments(l);
         Token t = lexer_peek(l);
+        // printf("DEBUG: parse_struct loop seeing '%.*s'\n", t.len, t.start);
         if (t.type == TOK_RBRACE)
         {
             lexer_next(l);

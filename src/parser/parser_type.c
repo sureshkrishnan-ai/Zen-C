@@ -27,6 +27,16 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
         lexer_next(l);
         char *name = token_strdup(t);
 
+        // Check for alias
+        const char *aliased = find_type_alias(ctx, name);
+        if (aliased)
+        {
+            free(name);
+            Lexer tmp;
+            lexer_init(&tmp, aliased);
+            return parse_type_formal(ctx, &tmp);
+        }
+
         // Self type alias: Replace "Self" with current impl struct type
         if (strcmp(name, "Self") == 0 && ctx->current_impl_struct)
         {
@@ -535,7 +545,6 @@ Type *parse_type_formal(ParserContext *ctx, Lexer *l)
     if (lexer_peek(l).type == TOK_IDENT && strncmp(lexer_peek(l).start, "fn", 2) == 0 &&
         lexer_peek(l).len == 2)
     {
-
         lexer_next(l); // eat 'fn'
         Type *fn_type = type_new(TYPE_FUNCTION);
         fn_type->is_varargs = 0;

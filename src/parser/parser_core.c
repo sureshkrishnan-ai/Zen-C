@@ -15,7 +15,6 @@ ASTNode *parse_program_nodes(ParserContext *ctx, Lexer *l)
     {
         skip_comments(l);
         Token t = lexer_peek(l);
-
         if (t.type == TOK_EOF)
         {
             break;
@@ -410,6 +409,10 @@ ASTNode *parse_program_nodes(ParserContext *ctx, Lexer *l)
             {
                 lexer_next(l);
             }
+        }
+        else if (t.type == TOK_ALIAS)
+        {
+            s = parse_type_alias(ctx, l);
         }
         else if (t.type == TOK_ASYNC)
         {

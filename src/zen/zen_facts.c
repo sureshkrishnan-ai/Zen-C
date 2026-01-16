@@ -8,10 +8,11 @@
 // We keep it low by default.
 #define ZEN_PROBABILITY 10
 
-typedef struct {
-  ZenTrigger trigger;
-  const char *message;
-  const char *url;
+typedef struct
+{
+    ZenTrigger trigger;
+    const char *message;
+    const char *url;
 } ZenFact;
 
 static const ZenFact facts[] = {
@@ -36,8 +37,7 @@ static const ZenFact facts[] = {
      "`sizeof(*ptr)` bytes.",
      NULL},
 
-    {TRIGGER_BITWISE,
-     "Use `(x & (x - 1)) == 0` to check if an integer is a power of two.",
+    {TRIGGER_BITWISE, "Use `(x & (x - 1)) == 0` to check if an integer is a power of two.",
      "https://graphics.stanford.edu/~seander/bithacks.html"},
     {TRIGGER_BITWISE,
      "XOR swap algorithm: `x ^= y; y ^= x; x ^= y;` swaps variables without a "
@@ -45,8 +45,7 @@ static const ZenFact facts[] = {
      "optimized code is usually faster).",
      NULL},
 
-    {TRIGGER_RECURSION,
-     "To understand recursion, you must first understand recursion.", NULL},
+    {TRIGGER_RECURSION, "To understand recursion, you must first understand recursion.", NULL},
     {TRIGGER_RECURSION,
      "Tail Call Optimization (TCO) allows some recursive calls to consume no "
      "additional stack "
@@ -195,8 +194,7 @@ static const ZenFact facts[] = {
      "The `#` stringification operator in macros turns arguments into string "
      "literals.",
      NULL},
-    {TRIGGER_GLOBAL,
-     "The `##` token-pasting operator concatenates tokens in macro expansions.",
+    {TRIGGER_GLOBAL, "The `##` token-pasting operator concatenates tokens in macro expansions.",
      NULL},
     {TRIGGER_GLOBAL,
      "Flexible array members: `int data[];` at struct end allows variable-size "
@@ -278,9 +276,7 @@ static const ZenFact facts[] = {
      "B, which was "
      "typeless.",
      NULL},
-    {TRIGGER_GLOBAL,
-     "The name 'C' simply comes from being the successor to the B language.",
-     NULL},
+    {TRIGGER_GLOBAL, "The name 'C' simply comes from being the successor to the B language.", NULL},
     {TRIGGER_GLOBAL,
      "Plan 9 C allows `structure.member` notation even if `member` is inside "
      "an anonymous inner "
@@ -363,129 +359,152 @@ static const ZenFact facts[] = {
 static int fact_count = sizeof(facts) / sizeof(ZenFact);
 static int has_triggered = 0;
 
-void zen_init(void) {
-  struct timespec ts;
-  clock_gettime(CLOCK_REALTIME, &ts);
-  srand(ts.tv_nsec ^ getpid());
+void zen_init(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    srand(ts.tv_nsec ^ getpid());
 }
 
 // Global helper to print.
-void zzen_at(Token t, const char *msg, const char *url) {
-  fprintf(stderr,
-          COLOR_GREEN "zen: " COLOR_RESET COLOR_BOLD "%s" COLOR_RESET "\n",
-          msg);
+void zzen_at(Token t, const char *msg, const char *url)
+{
+    fprintf(stderr, COLOR_GREEN "zen: " COLOR_RESET COLOR_BOLD "%s" COLOR_RESET "\n", msg);
 
-  extern char *g_current_filename;
-  if (t.line > 0) {
-    fprintf(stderr, COLOR_BLUE "  --> " COLOR_RESET "%s:%d:%d\n",
-            g_current_filename ? g_current_filename : "unknown", t.line, t.col);
-  }
-
-  if (t.start) {
-    const char *line_start = t.start - (t.col - 1);
-    const char *line_end = t.start;
-    while (*line_end && '\n' != *line_end) {
-      line_end++;
+    extern char *g_current_filename;
+    if (t.line > 0)
+    {
+        fprintf(stderr, COLOR_BLUE "  --> " COLOR_RESET "%s:%d:%d\n",
+                g_current_filename ? g_current_filename : "unknown", t.line, t.col);
     }
-    int line_len = line_end - line_start;
 
-    fprintf(stderr, COLOR_BLUE "   |\n" COLOR_RESET);
-    fprintf(stderr, COLOR_BLUE "%-3d| " COLOR_RESET "%.*s\n", t.line, line_len,
-            line_start);
-    fprintf(stderr, COLOR_BLUE "   | " COLOR_RESET);
-    for (int i = 0; i < t.col - 1; i++) {
-      fprintf(stderr, " ");
+    if (t.start)
+    {
+        const char *line_start = t.start - (t.col - 1);
+        const char *line_end = t.start;
+        while (*line_end && '\n' != *line_end)
+        {
+            line_end++;
+        }
+        int line_len = line_end - line_start;
+
+        fprintf(stderr, COLOR_BLUE "   |\n" COLOR_RESET);
+        fprintf(stderr, COLOR_BLUE "%-3d| " COLOR_RESET "%.*s\n", t.line, line_len, line_start);
+        fprintf(stderr, COLOR_BLUE "   | " COLOR_RESET);
+        for (int i = 0; i < t.col - 1; i++)
+        {
+            fprintf(stderr, " ");
+        }
+        fprintf(stderr, COLOR_GREEN "^ zen tip" COLOR_RESET "\n");
     }
-    fprintf(stderr, COLOR_GREEN "^ zen tip" COLOR_RESET "\n");
-  }
 
-  if (url) {
-    fprintf(stderr, COLOR_CYAN "   = read more: %s" COLOR_RESET "\n", url);
-  }
+    if (url)
+    {
+        fprintf(stderr, COLOR_CYAN "   = read more: %s" COLOR_RESET "\n", url);
+    }
 }
 
-int zen_trigger_at(ZenTrigger t, Token location) {
-  if (g_config.quiet) {
-    return 0;
-  }
-
-  if (has_triggered) {
-    return 0;
-  }
-
-  extern int g_warning_count;
-  if (g_warning_count > 0) {
-    return 0;
-  }
-
-  if ((rand() % 100) >= ZEN_PROBABILITY) {
-    return 0;
-  }
-
-  int matches[10];
-  int match_count = 0;
-
-  for (int i = 0; i < fact_count; i++) {
-    if (facts[i].trigger == t) {
-      matches[match_count++] = i;
-      if (match_count >= 10) {
-        break;
-      }
+int zen_trigger_at(ZenTrigger t, Token location)
+{
+    if (g_config.quiet)
+    {
+        return 0;
     }
-  }
 
-  if (0 == match_count) {
-    return 0;
-  }
+    if (has_triggered)
+    {
+        return 0;
+    }
 
-  int pick = matches[rand() % match_count];
-  const ZenFact *f = &facts[pick];
+    extern int g_warning_count;
+    if (g_warning_count > 0)
+    {
+        return 0;
+    }
 
-  zzen_at(location, f->message, f->url);
-  has_triggered = 1;
-  return 1;
+    if ((rand() % 100) >= ZEN_PROBABILITY)
+    {
+        return 0;
+    }
+
+    int matches[10];
+    int match_count = 0;
+
+    for (int i = 0; i < fact_count; i++)
+    {
+        if (facts[i].trigger == t)
+        {
+            matches[match_count++] = i;
+            if (match_count >= 10)
+            {
+                break;
+            }
+        }
+    }
+
+    if (0 == match_count)
+    {
+        return 0;
+    }
+
+    int pick = matches[rand() % match_count];
+    const ZenFact *f = &facts[pick];
+
+    zzen_at(location, f->message, f->url);
+    has_triggered = 1;
+    return 1;
 }
 
-void zen_trigger_global(void) {
-  if (g_config.quiet) {
-    return;
-  }
-  if (!isatty(STDERR_FILENO)) {
-    return;
-  }
-  if (has_triggered) {
-    return;
-  }
-
-  extern int g_warning_count;
-  if (g_warning_count > 0) {
-    return;
-  }
-
-  if ((rand() % 100) >= ZEN_PROBABILITY) {
-    return;
-  }
-
-  int matches[10];
-  int match_count = 0;
-
-  for (int i = 0; i < fact_count; i++) {
-    if (TRIGGER_GLOBAL == facts[i].trigger) {
-      matches[match_count++] = i;
-      if (match_count >= 10) {
-        break;
-      }
+void zen_trigger_global(void)
+{
+    if (g_config.quiet)
+    {
+        return;
     }
-  }
+    if (!isatty(STDERR_FILENO))
+    {
+        return;
+    }
+    if (has_triggered)
+    {
+        return;
+    }
 
-  if (0 == match_count) {
-    return;
-  }
+    extern int g_warning_count;
+    if (g_warning_count > 0)
+    {
+        return;
+    }
 
-  int pick = matches[rand() % match_count];
-  const ZenFact *f = &facts[pick];
+    if ((rand() % 100) >= ZEN_PROBABILITY)
+    {
+        return;
+    }
 
-  Token empty = {0};
-  zzen_at(empty, f->message, f->url);
-  has_triggered = 1;
+    int matches[10];
+    int match_count = 0;
+
+    for (int i = 0; i < fact_count; i++)
+    {
+        if (TRIGGER_GLOBAL == facts[i].trigger)
+        {
+            matches[match_count++] = i;
+            if (match_count >= 10)
+            {
+                break;
+            }
+        }
+    }
+
+    if (0 == match_count)
+    {
+        return;
+    }
+
+    int pick = matches[rand() % match_count];
+    const ZenFact *f = &facts[pick];
+
+    Token empty = {0};
+    zzen_at(empty, f->message, f->url);
+    has_triggered = 1;
 }

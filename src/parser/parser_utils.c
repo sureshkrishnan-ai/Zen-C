@@ -402,6 +402,29 @@ void add_to_struct_list(ParserContext *ctx, ASTNode *node)
     ctx->parsed_structs_list = r;
 }
 
+void register_type_alias(ParserContext *ctx, const char *alias, const char *original)
+{
+    TypeAlias *ta = xmalloc(sizeof(TypeAlias));
+    ta->alias = xstrdup(alias);
+    ta->original_type = xstrdup(original);
+    ta->next = ctx->type_aliases;
+    ctx->type_aliases = ta;
+}
+
+const char *find_type_alias(ParserContext *ctx, const char *alias)
+{
+    TypeAlias *ta = ctx->type_aliases;
+    while (ta)
+    {
+        if (strcmp(ta->alias, alias) == 0)
+        {
+            return ta->original_type;
+        }
+        ta = ta->next;
+    }
+    return NULL;
+}
+
 void add_to_enum_list(ParserContext *ctx, ASTNode *node)
 {
     StructRef *r = xmalloc(sizeof(StructRef));
