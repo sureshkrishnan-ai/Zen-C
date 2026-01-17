@@ -12,10 +12,15 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
 
     if (t.type == TOK_IDENT)
     {
+        int explicit_struct = 0;
         // Handle "struct Name" or "enum Name"
         if ((t.len == 6 && strncmp(t.start, "struct", 6) == 0) ||
             (t.len == 4 && strncmp(t.start, "enum", 4) == 0))
         {
+            if (strncmp(t.start, "struct", 6) == 0)
+            {
+                explicit_struct = 1;
+            }
             lexer_next(l); // consume keyword
             t = lexer_peek(l);
             if (t.type != TOK_IDENT)
@@ -381,6 +386,7 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
 
         Type *ty = type_new(TYPE_STRUCT);
         ty->name = name;
+        ty->is_explicit_struct = explicit_struct;
 
         // Handle Generics <T> or <K, V>
         if (lexer_peek(l).type == TOK_LANGLE)
@@ -463,7 +469,9 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
                     zpanic_at(t, "Expected > after generic");
                 }
 
-                instantiate_generic(ctx, name, first_arg_str, t);
+                char *unmangled_arg = type_to_c_string(first_arg);
+                instantiate_generic(ctx, name, first_arg_str, unmangled_arg, t);
+                free(unmangled_arg);
 
                 char *clean_arg = sanitize_mangled_name(first_arg_str);
                 char mangled[256];

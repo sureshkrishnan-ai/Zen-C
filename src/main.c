@@ -51,7 +51,6 @@ void print_usage()
 
 int main(int argc, char **argv)
 {
-    // Defaults
     memset(&g_config, 0, sizeof(g_config));
     strcpy(g_config.cc, "gcc");
 

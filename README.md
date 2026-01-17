@@ -154,6 +154,13 @@ union Data {
     i: int;
     f: float;
 }
+
+#### Type Aliases
+Create a new name for an existing type.
+```zc
+alias ID = int;
+alias PointMap = Map<string, Point>;
+```
 ```
 
 ### 4. Functions & Lambdas
@@ -377,6 +384,12 @@ struct Box<T> {
 // Generic Function
 fn identity<T>(val: T) -> T {
     return val;
+}
+
+// Multi-parameter Generics
+struct Pair<K, V> {
+    key: K;
+    value: V;
 }
 ```
 

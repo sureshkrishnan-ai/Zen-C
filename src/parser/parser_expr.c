@@ -1464,7 +1464,10 @@ ASTNode *parse_primary(ParserContext *ctx, Lexer *l)
                 if (lexer_peek(&lookahead).type == TOK_RANGLE)
                 {
                     lexer_next(l);
-                    char *concrete_type = parse_type(ctx, l);
+                    Type *formal_type = parse_type_formal(ctx, l);
+                    char *concrete_type = type_to_string(formal_type); // mangled for naming
+                    char *unmangled_type =
+                        type_to_c_string(formal_type); // C-compatible for substitution
                     lexer_next(l);
 
                     int is_struct = 0;
@@ -1485,7 +1488,7 @@ ASTNode *parse_primary(ParserContext *ctx, Lexer *l)
 
                     if (is_struct)
                     {
-                        instantiate_generic(ctx, acc, concrete_type, t);
+                        instantiate_generic(ctx, acc, concrete_type, unmangled_type, t);
 
                         char *clean_type = sanitize_mangled_name(concrete_type);
 
@@ -1498,7 +1501,8 @@ ASTNode *parse_primary(ParserContext *ctx, Lexer *l)
                     }
                     else
                     {
-                        char *m = instantiate_function_template(ctx, acc, concrete_type);
+                        char *m =
+                            instantiate_function_template(ctx, acc, concrete_type, unmangled_type);
                         if (m)
                         {
                             free(acc);

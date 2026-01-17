@@ -54,6 +54,7 @@ typedef struct Type
     struct Type **args; // For GENERIC args.
     int arg_count;
     int is_const;
+    int is_explicit_struct; // e.g. "struct Foo" vs "Foo"
     union
     {
         int array_size;  // For fixed-size arrays [T; N].
@@ -548,5 +549,6 @@ Type *type_new_ptr(Type *inner);
 int type_eq(Type *a, Type *b);
 int is_integer_type(Type *t);
 char *type_to_string(Type *t);
+char *type_to_c_string(Type *t);
 
 #endif

@@ -170,7 +170,7 @@ void emit_enum_protos(ASTNode *node, FILE *out)
             {
                 if (v->variant.payload)
                 {
-                    char *tstr = type_to_string(v->variant.payload);
+                    char *tstr = codegen_type_to_string(v->variant.payload);
                     fprintf(out, "%s %s_%s(%s v);\n", node->enm.name, node->enm.name,
                             v->variant.name, tstr);
                     free(tstr);
@@ -306,7 +306,7 @@ void emit_struct_defs(ParserContext *ctx, ASTNode *node, FILE *out)
             {
                 if (v->variant.payload)
                 {
-                    char *tstr = type_to_string(v->variant.payload);
+                    char *tstr = codegen_type_to_string(v->variant.payload);
                     fprintf(out, "%s %s; ", tstr, v->variant.name);
                     free(tstr);
                 }
@@ -318,7 +318,7 @@ void emit_struct_defs(ParserContext *ctx, ASTNode *node, FILE *out)
             {
                 if (v->variant.payload)
                 {
-                    char *tstr = type_to_string(v->variant.payload);
+                    char *tstr = codegen_type_to_string(v->variant.payload);
                     fprintf(out,
                             "%s %s_%s(%s v) { return (%s){.tag=%s_%s_Tag, "
                             ".data.%s=v}; }\n",
@@ -498,7 +498,8 @@ void emit_protos(ASTNode *node, FILE *out)
             }
             else
             {
-                fprintf(out, "%s %s(%s);\n", f->func.ret_type, f->func.name, f->func.args);
+                emit_func_signature(out, f, NULL);
+                fprintf(out, ";\n");
             }
         }
         else if (f->type == NODE_IMPL)
@@ -574,7 +575,8 @@ void emit_protos(ASTNode *node, FILE *out)
                 }
                 else
                 {
-                    fprintf(out, "%s %s(%s);\n", m->func.ret_type, proto, m->func.args);
+                    emit_func_signature(out, m, proto);
+                    fprintf(out, ";\n");
                 }
 
                 free(proto);

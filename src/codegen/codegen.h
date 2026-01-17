@@ -22,6 +22,8 @@ void emit_var_decl_type(ParserContext *ctx, FILE *out, const char *type_str, con
 char *replace_string_type(const char *args);
 const char *parse_original_method_name(const char *mangled);
 void emit_auto_type(ParserContext *ctx, ASTNode *init_expr, Token t, FILE *out);
+char *codegen_type_to_string(Type *t);
+void emit_func_signature(FILE *out, ASTNode *func, const char *name_override);
 
 // Declaration emission  (codegen_decl.c).
 void emit_preamble(ParserContext *ctx, FILE *out);

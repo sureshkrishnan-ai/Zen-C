@@ -8,7 +8,8 @@
 #include <string.h>
 
 void instantiate_methods(ParserContext *ctx, GenericImplTemplate *it,
-                         const char *mangled_struct_name, const char *arg);
+                         const char *mangled_struct_name, const char *arg,
+                         const char *unmangled_arg);
 
 Token expect(Lexer *l, TokenType type, const char *msg)
 {
@@ -388,7 +389,7 @@ void register_impl_template(ParserContext *ctx, const char *sname, const char *p
     {
         if (inst->template_name && strcmp(inst->template_name, sname) == 0)
         {
-            instantiate_methods(ctx, t, inst->name, inst->concrete_arg);
+            instantiate_methods(ctx, t, inst->name, inst->concrete_arg, inst->unmangled_arg);
         }
         inst = inst->next;
     }
@@ -1578,7 +1579,8 @@ FuncSig *find_func(ParserContext *ctx, const char *name)
     return NULL;
 }
 
-char *instantiate_function_template(ParserContext *ctx, const char *name, const char *concrete_type)
+char *instantiate_function_template(ParserContext *ctx, const char *name, const char *concrete_type,
+                                    const char *unmangled_type)
 {
     GenericFuncTemplate *tpl = find_func_template(ctx, name);
     if (!tpl)
@@ -1596,8 +1598,8 @@ char *instantiate_function_template(ParserContext *ctx, const char *name, const 
         return mangled;
     }
 
-    ASTNode *new_fn =
-        copy_ast_replacing(tpl->func_node, tpl->generic_param, concrete_type, NULL, NULL);
+    const char *subst_arg = unmangled_type ? unmangled_type : concrete_type;
+    ASTNode *new_fn = copy_ast_replacing(tpl->func_node, tpl->generic_param, subst_arg, NULL, NULL);
     if (!new_fn || new_fn->type != NODE_FUNCTION)
     {
         return NULL;
@@ -1820,7 +1822,20 @@ ASTNode *copy_fields_replacing(ParserContext *ctx, ASTNode *fields, const char *
 
                 if (found)
                 {
-                    instantiate_generic(ctx, template_name, concrete_arg, fields->token);
+                    char *unmangled = xstrdup(concrete_arg);
+                    size_t alen = strlen(concrete_arg);
+                    if (alen > 3 && strcmp(concrete_arg + alen - 3, "Ptr") == 0)
+                    {
+                        char *base = xstrdup(concrete_arg);
+                        base[alen - 3] = '\0';
+                        // heuristic: Ptr likely maps to struct T*
+                        free(unmangled);
+                        unmangled = xmalloc(strlen(base) + 16);
+                        sprintf(unmangled, "struct %s*", base);
+                        free(base);
+                    }
+                    instantiate_generic(ctx, template_name, concrete_arg, unmangled, fields->token);
+                    free(unmangled);
                 }
             }
             free(type_copy);
@@ -1832,7 +1847,8 @@ ASTNode *copy_fields_replacing(ParserContext *ctx, ASTNode *fields, const char *
 }
 
 void instantiate_methods(ParserContext *ctx, GenericImplTemplate *it,
-                         const char *mangled_struct_name, const char *arg)
+                         const char *mangled_struct_name, const char *arg,
+                         const char *unmangled_arg)
 {
     if (check_impl(ctx, "Methods", mangled_struct_name))
     {
@@ -1841,8 +1857,9 @@ void instantiate_methods(ParserContext *ctx, GenericImplTemplate *it,
 
     ASTNode *backup_next = it->impl_node->next;
     it->impl_node->next = NULL; // Break link to isolate node
-    ASTNode *new_impl = copy_ast_replacing(it->impl_node, it->generic_param, arg, it->struct_name,
-                                           mangled_struct_name);
+    const char *subst_arg = unmangled_arg ? unmangled_arg : arg;
+    ASTNode *new_impl = copy_ast_replacing(it->impl_node, it->generic_param, subst_arg,
+                                           it->struct_name, mangled_struct_name);
     it->impl_node->next = backup_next; // Restore
 
     new_impl->impl.struct_name = xstrdup(mangled_struct_name);
@@ -1878,7 +1895,8 @@ void instantiate_methods(ParserContext *ctx, GenericImplTemplate *it,
                     if (strcmp(gt->name, template_name) == 0)
                     {
                         // Found matching template, instantiate it
-                        instantiate_generic(ctx, template_name, arg, meth->token);
+                        const char *subst_arg = unmangled_arg ? unmangled_arg : arg;
+                        instantiate_generic(ctx, template_name, arg, subst_arg, meth->token);
                         break;
                     }
                     gt = gt->next;
@@ -1892,7 +1910,8 @@ void instantiate_methods(ParserContext *ctx, GenericImplTemplate *it,
     add_instantiated_func(ctx, new_impl);
 }
 
-void instantiate_generic(ParserContext *ctx, const char *tpl, const char *arg, Token token)
+void instantiate_generic(ParserContext *ctx, const char *tpl, const char *arg,
+                         const char *unmangled_arg, Token token)
 {
     // Ignore generic placeholders
     if (strlen(arg) == 1 && isupper(arg[0]))
@@ -1937,8 +1956,11 @@ void instantiate_generic(ParserContext *ctx, const char *tpl, const char *arg, T
     ni->name = xstrdup(m);
     ni->template_name = xstrdup(tpl);
     ni->concrete_arg = xstrdup(arg);
-    ni->struct_node = NULL; // Placeholder to break cycles
+    ni->unmangled_arg = unmangled_arg ? xstrdup(unmangled_arg)
+                                      : xstrdup(arg); // Fallback to arg if unmangled is generic
+    ni->struct_node = NULL;                           // Placeholder to break cycles
     ni->next = ctx->instantiations;
+    ni->struct_node = NULL; // Duplicate assignment, ignore.
     ctx->instantiations = ni;
 
     ASTNode *struct_node_copy = NULL;
@@ -1952,7 +1974,8 @@ void instantiate_generic(ParserContext *ctx, const char *tpl, const char *arg, T
         const char *gp = (t->struct_node->strct.generic_param_count > 0)
                              ? t->struct_node->strct.generic_params[0]
                              : "T";
-        i->strct.fields = copy_fields_replacing(ctx, t->struct_node->strct.fields, gp, arg);
+        const char *subst_arg = unmangled_arg ? unmangled_arg : arg;
+        i->strct.fields = copy_fields_replacing(ctx, t->struct_node->strct.fields, gp, subst_arg);
         struct_node_copy = i;
         register_struct_def(ctx, m, i);
     }
@@ -1968,8 +1991,9 @@ void instantiate_generic(ParserContext *ctx, const char *tpl, const char *arg, T
             ASTNode *nv = ast_create(NODE_ENUM_VARIANT);
             nv->variant.name = xstrdup(v->variant.name);
             nv->variant.tag_id = v->variant.tag_id;
+            const char *subst_arg = unmangled_arg ? unmangled_arg : arg;
             nv->variant.payload = replace_type_formal(
-                v->variant.payload, t->struct_node->enm.generic_param, arg, NULL, NULL);
+                v->variant.payload, t->struct_node->enm.generic_param, subst_arg, NULL, NULL);
             char mangled_var[512];
             sprintf(mangled_var, "%s_%s", m, nv->variant.name);
             register_enum_variant(ctx, m, mangled_var, nv->variant.tag_id);
@@ -2001,7 +2025,8 @@ void instantiate_generic(ParserContext *ctx, const char *tpl, const char *arg, T
     {
         if (strcmp(it->struct_name, tpl) == 0)
         {
-            instantiate_methods(ctx, it, m, arg);
+            const char *subst_arg = unmangled_arg ? unmangled_arg : arg;
+            instantiate_methods(ctx, it, m, arg, subst_arg);
         }
         it = it->next;
     }

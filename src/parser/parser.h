@@ -116,6 +116,7 @@ typedef struct Instantiation
     char *name;
     char *template_name;
     char *concrete_arg;
+    char *unmangled_arg; // For code substitution (e.g. "struct T*")
     ASTNode *struct_node;
     struct Instantiation *next;
 } Instantiation;
@@ -320,7 +321,8 @@ void add_to_impl_list(ParserContext *ctx, ASTNode *node);
 void add_to_global_list(ParserContext *ctx, ASTNode *node);
 void register_builtins(ParserContext *ctx);
 void add_instantiated_func(ParserContext *ctx, ASTNode *fn);
-void instantiate_generic(ParserContext *ctx, const char *name, const char *concrete_type, Token t);
+void instantiate_generic(ParserContext *ctx, const char *name, const char *concrete_type,
+                         const char *unmangled_type, Token t);
 void instantiate_generic_multi(ParserContext *ctx, const char *name, char **args, int arg_count,
                                Token t);
 char *sanitize_mangled_name(const char *name);
@@ -390,8 +392,8 @@ void init_builtins();
 // Expression rewriting
 char *rewrite_expr_methods(ParserContext *ctx, char *raw);
 char *process_fstring(ParserContext *ctx, const char *content, char ***used_syms, int *count);
-char *instantiate_function_template(ParserContext *ctx, const char *name,
-                                    const char *concrete_type);
+char *instantiate_function_template(ParserContext *ctx, const char *name, const char *concrete_type,
+                                    const char *unmangled_type);
 FuncSig *find_func(ParserContext *ctx, const char *name);
 
 Type *parse_type_formal(ParserContext *ctx, Lexer *l);
