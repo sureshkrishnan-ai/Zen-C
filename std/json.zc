@@ -173,6 +173,130 @@ raw {
     }
 }
 
+// ============================================
+// Json Builder - Simple fluent API for building JSON strings
+// ============================================
+
+struct Json {
+    buf: char*;
+    len: int;
+    cap: int;
+    first: bool;
+    in_arr: bool;
+    arr_first: bool;
+}
+
+impl Json {
+    fn new() -> Json {
+        var b = Json {
+            buf: alloc_n<char>(256),
+            len: 1,
+            cap: 256,
+            first: true,
+            in_arr: false,
+            arr_first: true
+        };
+        b.buf[0] = '{';
+        return b;
+    }
+
+    fn _grow(self, needed: int) {
+        if self.len + needed >= self.cap {
+            var new_cap = self.cap * 2;
+            while new_cap < self.len + needed { new_cap = new_cap * 2; }
+            var new_buf = alloc_n<char>(new_cap);
+            for i in 0..self.len { new_buf[i] = self.buf[i]; }
+            free(self.buf);
+            self.buf = new_buf;
+            self.cap = new_cap;
+        }
+    }
+
+    fn _put(self, s: char*) {
+        var slen = strlen(s);
+        self._grow(slen + 1);
+        for i in 0..slen { self.buf[self.len + i] = s[i]; }
+        self.len = self.len + slen;
+    }
+
+    fn str(self, key: char*, value: char*) -> Json* {
+        self._grow(64);
+        self.len = self.len + sprintf(self.buf + self.len, "%s\"%s\":\"%s\"",
+            self.first ? "" : ",", key, value);
+        self.first = false;
+        return self;
+    }
+
+    fn int(self, key: char*, value: int) -> Json* {
+        self._grow(64);
+        self.len = self.len + sprintf(self.buf + self.len, "%s\"%s\":%d",
+            self.first ? "" : ",", key, value);
+        self.first = false;
+        return self;
+    }
+
+    fn num(self, key: char*, value: float) -> Json* {
+        self._grow(64);
+        self.len = self.len + sprintf(self.buf + self.len, "%s\"%s\":%.2f",
+            self.first ? "" : ",", key, value);
+        self.first = false;
+        return self;
+    }
+
+    fn flag(self, key: char*, value: bool) -> Json* {
+        self._grow(64);
+        self.len = self.len + sprintf(self.buf + self.len, "%s\"%s\":%s",
+            self.first ? "" : ",", key, value ? "true" : "false");
+        self.first = false;
+        return self;
+    }
+
+    // Array support
+    fn arr(self, key: char*) -> Json* {
+        self._grow(64);
+        self.len = self.len + sprintf(self.buf + self.len, "%s\"%s\":[",
+            self.first ? "" : ",", key);
+        self.first = false;
+        self.in_arr = true;
+        self.arr_first = true;
+        return self;
+    }
+
+    fn obj(self, inner: Json*) -> Json* {
+        if !self.in_arr { return self; }
+        var s = inner.build();
+        self._grow(strlen(s) + 2);
+        self.len = self.len + sprintf(self.buf + self.len, "%s%s",
+            self.arr_first ? "" : ",", s);
+        self.arr_first = false;
+        free(s);
+        inner.free();
+        return self;
+    }
+
+    fn end(self) -> Json* {
+        if self.in_arr {
+            self._put("]");
+            self.in_arr = false;
+        }
+        return self;
+    }
+
+    fn build(self) -> char* {
+        self._put("}");
+        self.buf[self.len] = '\0';
+        return strdup(self.buf);
+    }
+
+    fn free(self) {
+        free(self.buf);
+    }
+}
+
+// ============================================
+// JsonValue - Full JSON DOM for parsing
+// ============================================
+
 impl JsonValue {
     fn null() -> JsonValue {
         return JsonValue { kind: JsonType::JSON_NULL(), string_val: 0, number_val: 0, bool_val: false, array_val: 0, object_val: 0 };
@@ -222,6 +346,39 @@ impl JsonValue {
             return Result<JsonValue*>::Ok(result);
         }
         return Result<JsonValue*>::Err("JSON parse error");
+    }
+
+    // Object field accessors
+    fn get(self, key: char*) -> JsonValue* {
+        if self.kind.tag != JsonType::JSON_OBJECT().tag { return NULL; }
+        var opt = self.object_val.get(key);
+        if opt.is_none() { return NULL; }
+        return opt.unwrap();
+    }
+
+    fn get_str(self, key: char*) -> char* {
+        var val: JsonValue* = self.get(key);
+        if (void*)val == NULL { return NULL; }
+        if val.kind.tag != JsonType::JSON_STRING().tag { return NULL; }
+        return val.string_val;
+    }
+
+    fn get_num(self, key: char*) -> double {
+        var val: JsonValue* = self.get(key);
+        if (void*)val == NULL { return 0.0; }
+        if val.kind.tag != JsonType::JSON_NUMBER().tag { return 0.0; }
+        return val.number_val;
+    }
+
+    fn get_int(self, key: char*) -> int {
+        return (int)self.get_num(key);
+    }
+
+    fn get_bool(self, key: char*) -> bool {
+        var val: JsonValue* = self.get(key);
+        if (void*)val == NULL { return false; }
+        if val.kind.tag != JsonType::JSON_BOOL().tag { return false; }
+        return val.bool_val;
     }
     
     fn free(self) {
