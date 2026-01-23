@@ -6,5 +6,6 @@
 - [Option](./option.md) - Optional values (Some/None).
 - [Path](./path.md) - File path manipulation.
 - [Result](./result.md) - Error handling (Ok/Err).
+- [Queue](./queue.md) - FIFO queue (Ring Buffer).
 - [String](./string.md) - Growable, heap-allocated string type.
 - [Vector (Vec)](./vec.md) - A growable dynamic array.

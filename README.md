@@ -834,6 +834,7 @@ Zen C includes a standard library (`std`) covering essential functionality.
 | :--- | :--- | :--- |
 | **`std/vec.zc`** | Growable dynamic array `Vec<T>`. | [Docs](docs/std/vec.md) |
 | **`std/string.zc`** | Heap-allocated `String` type with UTF-8 support. | [Docs](docs/std/string.md) |
+| **`std/queue.zc`** | FIFO queue. | [Docs](docs/std/queue.md) |
 | **`std/map.zc`** | Generic Hash Map `Map<V>`. | [Docs](docs/std/map.md) |
 | **`std/fs.zc`** | File system operations. | [Docs](docs/std/fs.md) |
 | **`std/option.zc`** | Optional values (`Some`/`None`). | [Docs](docs/std/option.md) |

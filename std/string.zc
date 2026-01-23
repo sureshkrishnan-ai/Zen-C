@@ -31,7 +31,6 @@ impl String {
         return String::new(s);
     }
 
-    // Fixed: 'self' implies pointer in generated C
     fn c_str(self) -> char* {
         return self.vec.data;
     }
@@ -244,5 +243,76 @@ impl String {
         }
         
         return parts;
+    }
+
+    fn trim(self) -> String {
+        var start: usize = 0;
+        var len = self.length();
+        var end = len;
+
+        // Find start
+        while (start < len) {
+            var c = self.vec.get(start);
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                break;
+            }
+            start = start + 1;
+        }
+
+        if (start == len) {
+            return String::new("");
+        }
+
+        // Find end
+        while (end > start) {
+            var c = self.vec.get(end - 1);
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                break;
+            }
+            end = end - 1;
+        }
+
+        return self.substring(start, end - start);
+    }
+    
+    fn replace(self, target: char*, replacement: char*) -> String {
+        var t_len = strlen(target);
+        if (t_len == 0) return self.substring(0, self.length()); // clone
+        
+
+        var s_len = self.length();
+        var result = String::new("");
+        
+        var i: usize = 0;
+        while (i < s_len) {
+            // Check if match
+            if (i + t_len <= s_len) {
+                var is_match = true;
+                // Manual strncmp against vec data
+                for (var k: usize = 0; k < t_len; k = k + 1) {
+                    if (self.vec.get(i + k) != target[k]) {
+                        is_match = false;
+                        break;
+                    }
+                }
+                
+                if (is_match) {
+                    var r_str = String::new(replacement);
+                    result.append(&r_str);
+                    i = i + t_len;
+                    continue;
+                }
+            }
+            
+            // Append single char
+            var v = Vec<char>::new();
+            v.push(self.vec.get(i));
+            v.push(0);
+            var ch_s = String::new(v.data);
+            result.append(&ch_s);
+            v.free();
+            i = i + 1;
+        }
+        return result;
     }
 }

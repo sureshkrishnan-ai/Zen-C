@@ -72,6 +72,8 @@ These methods handle UTF-8 character boundaries correctly, contrasting with the 
 | Method | Signature | Description |
 | :--- | :--- | :--- |
 | **split** | `split(self, delim: char) -> Vec<String>` | Splits the string into a vector of substrings separated by `delim`. |
+| **trim** | `trim(self) -> String` | Returns a new string with leading and trailing whitespace removed. |
+| **replace** | `replace(self, target: char*, replacement: char*) -> String` | Returns a new string with all occurrences of `target` replaced by `replacement`. |
 
 ### Comparison
 

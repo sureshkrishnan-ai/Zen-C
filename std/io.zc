@@ -1,5 +1,6 @@
 
 import "./core.zc"
+import "./string.zc"
 
 raw {
     char* format(const char* fmt, ...) {
@@ -34,8 +35,29 @@ raw {
     { 
         return fgetc((FILE*)stream); 
     }
+    
+    char* _z_format_alloc(const char* fmt, va_list args) {
+         int len = vsnprintf(NULL, 0, fmt, args);
+         if (len < 0) return NULL;
+         char* buffer = malloc(len + 1);
+         if (!buffer) return NULL;
+         vsnprintf(buffer, len + 1, fmt, args);
+         return buffer;
+    }
+    
+    char* format_s_raw(char* fmt, ...) {
+        va_list args;
+        va_start(args, fmt);
+        char* ret = _z_format_alloc(fmt, args);
+        va_end(args);
+        return ret;
+    }
 }
 
+extern fn format_s_raw(fmt: char*, ...) -> char*;
+
+// TODO: add format function. We will need to do a few updates...
+//       like adding support for varargs in Zen C functions.
 
 
 fn readln() -> char* {
