@@ -1,6 +1,6 @@
 
-import { Vector as MathVec } from "./test_modules/math.zc";
-import { Vector as PhysicsVec } from "./test_modules/physics.zc";
+import { Vector as MathVec } from "./test_modules/_math.zc";
+import { Vector as PhysicsVec } from "./test_modules/_physics.zc";
 
 test "test_selective_aliasing" {
     var mv = MathVec::new(3, 4);

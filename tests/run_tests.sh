@@ -49,7 +49,7 @@ while read -r test_file; do
         ((FAILED++))
         FAILED_TESTS="$FAILED_TESTS\n- $test_file"
     fi
-done < <(find "$TEST_DIR" -name "*.zc" | sort)
+done < <(find "$TEST_DIR" -name "*.zc" -not -name "_*.zc" | sort)
 
 echo "----------------------------------------"
 echo "Summary:"

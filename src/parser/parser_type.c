@@ -368,6 +368,76 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
             free(name);
             return type_new(TYPE_CHAR);
         }
+        if (strcmp(name, "long") == 0)
+        {
+            free(name);
+            return type_new(TYPE_I64);
+        }
+        if (strcmp(name, "short") == 0)
+        {
+            free(name);
+            return type_new(TYPE_I16);
+        }
+        if (strcmp(name, "unsigned") == 0)
+        {
+            free(name);
+            return type_new(TYPE_UINT);
+        }
+        if (strcmp(name, "signed") == 0)
+        {
+            free(name);
+            return type_new(TYPE_INT);
+        }
+        if (strcmp(name, "int8_t") == 0)
+        {
+            free(name);
+            return type_new(TYPE_I8);
+        }
+        if (strcmp(name, "uint8_t") == 0)
+        {
+            free(name);
+            return type_new(TYPE_U8);
+        }
+        if (strcmp(name, "int16_t") == 0)
+        {
+            free(name);
+            return type_new(TYPE_I16);
+        }
+        if (strcmp(name, "uint16_t") == 0)
+        {
+            free(name);
+            return type_new(TYPE_U16);
+        }
+        if (strcmp(name, "int32_t") == 0)
+        {
+            free(name);
+            return type_new(TYPE_I32);
+        }
+        if (strcmp(name, "uint32_t") == 0)
+        {
+            free(name);
+            return type_new(TYPE_U32);
+        }
+        if (strcmp(name, "int64_t") == 0)
+        {
+            free(name);
+            return type_new(TYPE_I64);
+        }
+        if (strcmp(name, "uint64_t") == 0)
+        {
+            free(name);
+            return type_new(TYPE_U64);
+        }
+        if (strcmp(name, "size_t") == 0)
+        {
+            free(name);
+            return type_new(TYPE_USIZE);
+        }
+        if (strcmp(name, "ssize_t") == 0)
+        {
+            free(name);
+            return type_new(TYPE_ISIZE);
+        }
 
         // Selective imports ONLY apply when we're NOT in a module context
         if (!ctx->current_module_prefix)
@@ -393,6 +463,11 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
             sprintf(prefixed_name, "%s_%s", ctx->current_module_prefix, name);
             free(name);
             name = prefixed_name;
+        }
+
+        if (!is_known_generic(ctx, name) && strcmp(name, "Self") != 0)
+        {
+            register_type_usage(ctx, name, t);
         }
 
         Type *ty = type_new(TYPE_STRUCT);
@@ -443,7 +518,23 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
                 }
 
                 // Call multi-arg instantiation
-                instantiate_generic_multi(ctx, name, args, arg_count, t);
+                int is_generic_dep = 0;
+                for (int i = 0; i < arg_count; ++i)
+                {
+                    for (int k = 0; k < ctx->known_generics_count; ++k)
+                    {
+                        if (strcmp(args[i], ctx->known_generics[k]) == 0)
+                        {
+                            is_generic_dep = 1;
+                            break;
+                        }
+                    }
+                }
+
+                if (!is_generic_dep)
+                {
+                    instantiate_generic_multi(ctx, name, args, arg_count, t);
+                }
 
                 // Build mangled name
                 char mangled[256];
@@ -481,7 +572,21 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
                 }
 
                 char *unmangled_arg = type_to_c_string(first_arg);
-                instantiate_generic(ctx, name, first_arg_str, unmangled_arg, t);
+
+                int is_single_dep = 0;
+                for (int k = 0; k < ctx->known_generics_count; ++k)
+                {
+                    if (strcmp(first_arg_str, ctx->known_generics[k]) == 0)
+                    {
+                        is_single_dep = 1;
+                        break;
+                    }
+                }
+
+                if (!is_single_dep)
+                {
+                    instantiate_generic(ctx, name, first_arg_str, unmangled_arg, t);
+                }
                 free(unmangled_arg);
 
                 char *clean_arg = sanitize_mangled_name(first_arg_str);
@@ -608,11 +713,20 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
 Type *parse_type_formal(ParserContext *ctx, Lexer *l)
 {
     int is_restrict = 0;
-    if (lexer_peek(l).type == TOK_IDENT && lexer_peek(l).len == 8 &&
-        strncmp(lexer_peek(l).start, "restrict", 8) == 0)
+    int is_const = 0;
+
+    if (lexer_peek(l).type == TOK_IDENT)
     {
-        lexer_next(l); // eat restrict
-        is_restrict = 1;
+        if (lexer_peek(l).len == 8 && strncmp(lexer_peek(l).start, "restrict", 8) == 0)
+        {
+            lexer_next(l); // eat restrict
+            is_restrict = 1;
+        }
+        else if (lexer_peek(l).len == 5 && strncmp(lexer_peek(l).start, "const", 5) == 0)
+        {
+            lexer_next(l); // eat const
+            is_const = 1;
+        }
     }
 
     // Example: fn(int, int) -> int
@@ -723,6 +837,10 @@ Type *parse_type_formal(ParserContext *ctx, Lexer *l)
     if (is_restrict)
     {
         t->is_restrict = 1;
+    }
+    if (is_const)
+    {
+        t->is_const = 1;
     }
     return t;
 }

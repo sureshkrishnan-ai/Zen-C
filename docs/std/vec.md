@@ -54,6 +54,7 @@ struct Vec<T> {
 | **pop_opt** | `pop_opt(self) -> Option<T>` | Removes the last element and returns `Some(val)`. Returns `None` if empty. Safe usage. |
 | **insert** | `insert(self, idx: usize, item: T)` | Inserts an element at `idx`. Shifts elements right. Panics if `idx > len`. |
 | **remove** | `remove(self, idx: usize) -> T` | Removes and returns the element at `idx`. Shifts elements left. Panics if `idx >= len`. |
+| **append** | `append(self, other: Vec<T>)` | Appends the given vec to the back of self, growing the capacity of self as needed. |
 | **clear** | `clear(self)` | Removes all values. Has no effect on allocated capacity. |
 | **reverse** | `reverse(self)` | Reverses the order of elements in place. |
 
@@ -74,6 +75,7 @@ struct Vec<T> {
 | **is_empty** | `is_empty(self) -> bool` | Returns `true` if the vector contains no elements. |
 | **contains** | `contains(self, item: T) -> bool` | Returns `true` if vector contains an element equal to `item` (byte-wise). |
 | **clone** | `clone(self) -> Vec<T>` | Returns a new vector with a deep copy of the data. |
+| **eq** | `eq(self, other: Vec<T>) -> bool` | Returns `true` if two vectors are equal byte-wise. |
 
 ### Iteration
 

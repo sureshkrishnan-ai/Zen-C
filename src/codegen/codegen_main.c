@@ -547,7 +547,7 @@ void codegen_node(ParserContext *ctx, ASTNode *node, FILE *out)
 
         emit_lambda_defs(ctx, out);
 
-        emit_tests_and_runner(ctx, kids, out);
+        int test_count = emit_tests_and_runner(ctx, kids, out);
 
         ASTNode *iter = merged_funcs;
         while (iter)
@@ -577,13 +577,9 @@ void codegen_node(ParserContext *ctx, ASTNode *node, FILE *out)
                 }
                 else
                 {
-                    char *lt = strchr(sname, '<');
-                    if (lt)
+                    char *buf = strip_template_suffix(sname);
+                    if (buf)
                     {
-                        int len = lt - sname;
-                        char *buf = xmalloc(len + 1);
-                        strncpy(buf, sname, len);
-                        buf[len] = 0;
                         def = find_struct_def_codegen(ctx, buf);
                         if (def && def->strct.is_template)
                         {
@@ -623,13 +619,9 @@ void codegen_node(ParserContext *ctx, ASTNode *node, FILE *out)
                 }
                 else
                 {
-                    char *lt = strchr(sname, '<');
-                    if (lt)
+                    char *buf = strip_template_suffix(sname);
+                    if (buf)
                     {
-                        int len = lt - sname;
-                        char *buf = xmalloc(len + 1);
-                        strncpy(buf, sname, len);
-                        buf[len] = 0;
                         def = find_struct_def_codegen(ctx, buf);
                         if (def && def->strct.is_template)
                         {
@@ -664,7 +656,7 @@ void codegen_node(ParserContext *ctx, ASTNode *node, FILE *out)
             chk = chk->next;
         }
 
-        if (!has_user_main)
+        if (!has_user_main && test_count > 0)
         {
             fprintf(out, "\nint main() { _z_run_tests(); return 0; }\n");
         }

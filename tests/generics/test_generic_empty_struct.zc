@@ -1,0 +1,85 @@
+struct Optional<T> {
+  value: T;
+  valid: bool;
+}
+
+impl Optional<T> {
+  fn get(self) -> T {
+    assert(self.valid, "Optional does not contain value");
+    return self.value;
+  }
+
+  fn has_value(self) -> bool {
+    return self.valid;
+  }
+
+  fn emplace(self, value: T) {
+    self.value = value;
+    self.valid = true;
+  }
+
+  fn reset(self) {
+    self.valid = false;
+  }
+}
+
+struct Stack<T> {
+  data: T*;
+  len: u64;
+  cap: u64;
+}
+
+impl Stack<T> {
+  fn new() -> Stack<T> {
+    return Stack<T> {
+      data: NULL,
+      len: 0,
+      cap: 0
+    };
+  }
+
+  fn free(self) {
+    if (self.data) {
+      free(self.data);
+    }
+    self.len = 0;
+  }
+
+  fn clear(self) {
+    self.len = 0;
+  }
+
+  fn push(self, value: T) {
+    if (!self.data) {
+      self.cap = 8;
+      self.data = malloc(sizeof(T) * self.cap);
+    }
+    if self.len == self.cap {
+      self.cap = self.cap * 2;
+      self.data = realloc(self.data, sizeof(T) * self.cap);
+    }
+
+    self.data[self.len] = value;
+    self.len = self.len + 1;
+  }
+
+  fn pop(self) -> Optional<T> {
+    if (self.len > 0) {
+      var result = Optional<T>{};
+      result.emplace(self.data[self.len - 1]);
+      self.len = self.len - 1;
+      return result;
+    }
+    return Optional<T>{};
+  }
+}
+
+test "Generic Empty Struct Init" {
+  var s = Stack<i32>{};
+  defer s.free();
+  s.push(123);
+  var result = s.pop();
+  
+  assert(result.has_value(), "Result should have value");
+  assert(result.get() == 123, "Result value should be 123");
+}

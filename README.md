@@ -48,7 +48,10 @@ Join the discussion, share demos, ask questions, or report bugs in the official 
         - [Type Aliases](#type-aliases)
     - [4. Functions & Lambdas](#4-functions--lambdas)
         - [Functions](#functions)
+        - [Const Arguments](#const-arguments)
+        - [Default Arguments](#default-arguments)
         - [Lambdas (Closures)](#lambdas-closures)
+        - [Variadic Functions](#variadic-functions)
     - [5. Control Flow](#5-control-flow)
         - [Conditionals](#conditionals)
         - [Pattern Matching](#pattern-matching)
@@ -85,6 +88,7 @@ Join the discussion, share demos, ask questions, or report bugs in the official 
         - [Volatile](#volatile)
         - [Named Constraints](#named-constraints)
     - [15. Build Directives](#15-build-directives)
+- [Standard Library](#standard-library)
 - [Tooling](#tooling)
     - [Language Server (LSP)](#language-server-lsp)
     - [REPL](#repl)
@@ -169,11 +173,32 @@ var zeros: [int; 5]; // Zero-initialized
 ```
 
 #### Tuples
-Group multiple values together.
+Group multiple values together, access elements by index.
 ```zc
 var pair = (1, "Hello");
-var x = pair.0;
-var s = pair.1;
+var x = pair.0;  // 1
+var s = pair.1;  // "Hello"
+```
+
+**Multiple Return Values**
+
+Functions can return tuples to provide multiple results:
+```zc
+fn add_and_subtract(a: int, b: int) -> (int, int) {
+    return (a + b, a - b);
+}
+
+var result = add_and_subtract(3, 2);
+var sum = result.0;   // 5
+var diff = result.1;  // 1
+```
+
+**Destructuring**
+
+Tuples can be destructured directly into variables:
+```zc
+var (sum, diff) = add_and_subtract(3, 2);
+// sum = 5, diff = 1
 ```
 
 #### Structs
@@ -234,12 +259,60 @@ fn add(a: int, b: int) -> int {
 add(a: 10, b: 20);
 ```
 
+> **Note**: Named arguments must strictly follow the defined parameter order. `add(b: 20, a: 10)` is invalid.
+
+#### Const Arguments
+Function arguments can be marked as `const` to enforce read-only semantics.
+```zc
+fn print_val(v: const int) {
+    // v = 10; // Error: Cannot assign to const variable
+    println "{v}";
+}
+```
+
+#### Default Arguments
+Functions can define default values for trailing arguments. These can be literals, expressions, or valid Zen C code (like struct constructors).
+```zc
+// Simple default value
+fn increment(val: int, amount: int = 1) -> int {
+    return val + amount;
+}
+
+// Expression default value (evaluated at call site)
+fn offset(val: int, pad: int = 10 * 2) -> int {
+    return val + pad;
+}
+
+// Struct default value
+struct Config { debug: bool; }
+fn init(cfg: Config = Config { debug: true }) {
+    if cfg.debug { println "Debug Mode"; }
+}
+
+fn main() {
+    increment(10);      // 11
+    offset(5);          // 25
+    init();             // Prints "Debug Mode"
+}
+```
+
 #### Lambdas (Closures)
 Anonymous functions that can capture their environment.
 ```zc
 var factor = 2;
 var double = x -> x * factor;  // Arrow syntax
 var full = fn(x: int) -> int { return x * factor; }; // Block syntax
+```
+
+#### Variadic Functions
+Functions can accept a variable number of arguments using `...` and the `va_list` type.
+```zc
+fn log(lvl: int, fmt: char*, ...) {
+    var ap: va_list;
+    va_start(ap, fmt);
+    vprintf(fmt, ap); // Use C stdio
+    va_end(ap);
+}
 ```
 
 ### 5. Control Flow
@@ -422,11 +495,13 @@ println "You are {age} years old.";
 Zen C allows manual memory management with ergonomic aids.
 
 #### Defer
-Execute code when the current scope exits.
+Execute code when the current scope exits. Defer statements are executed in LIFO (last-in, first-out) order.
 ```zc
 var f = fopen("file.txt", "r");
 defer fclose(f);
 ```
+
+> To prevent undefined behavior, control flow statements (`return`, `break`, `continue`, `goto`) are **not allowed** inside a `defer` block.
 
 #### Autofree
 Automatically free the variable when scope exits.
@@ -816,6 +891,29 @@ import "raylib.h"
 
 fn main() { ... }
 ```
+
+---
+
+## Standard Library
+
+Zen C includes a standard library (`std`) covering essential functionality.
+
+[Browse the Standard Library Documentation](docs/std/README.md)
+
+### Key Modules
+
+| Module | Description | Docs |
+| :--- | :--- | :--- |
+| **`std/vec.zc`** | Growable dynamic array `Vec<T>`. | [Docs](docs/std/vec.md) |
+| **`std/string.zc`** | Heap-allocated `String` type with UTF-8 support. | [Docs](docs/std/string.md) |
+| **`std/queue.zc`** | FIFO queue (Ring Buffer). | [Docs](docs/std/queue.md) |
+| **`std/map.zc`** | Generic Hash Map `Map<V>`. | [Docs](docs/std/map.md) |
+| **`std/fs.zc`** | File system operations. | [Docs](docs/std/fs.md) |
+| **`std/io.zc`** | Standard Input/Output (`print`/`println`). | [Docs](docs/std/io.md) |
+| **`std/option.zc`** | Optional values (`Some`/`None`). | [Docs](docs/std/option.md) |
+| **`std/result.zc`** | Error handling (`Ok`/`Err`). | [Docs](docs/std/result.md) |
+| **`std/path.zc`** | Cross-platform path manipulation. | [Docs](docs/std/path.md) |
+| **`std/env.zc`** | Process environment variables. | [Docs](docs/std/env.md) |
 
 ---
 

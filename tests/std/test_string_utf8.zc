@@ -1,0 +1,56 @@
+import "std/string.zc"
+
+test "utf8_basic_ascii" {
+    var s = String::from("Hello");
+    
+    if (s.utf8_len() != 5) {
+        println "ASCII Len failed";
+        exit(1);
+    }
+    
+    var h = s.utf8_at(0);
+    var t1 = String::from("H");
+    if (!h.eq(&t1)) {
+        println "ASCII At failed";
+        exit(1);
+    }
+    
+    var sub = s.utf8_substr(1, 4);
+    var t2 = String::from("ello");
+    if (!sub.eq(&t2)) {
+        println "ASCII Substr failed";
+        exit(1);
+    }
+}
+
+test "utf8_multibyte" {
+    // "Hey 🌎!" - "Hey " (4) + 🌎 (1) + "!" (1) = 6 chars
+    // Bytes: H(1) e(1) y(1)  (1) 🌎(4) !(1) = 9 bytes?
+    // 🌎 is approx F0 9F 8C 8D (4 bytes)
+    
+    var s = String::from("Hey 🌎!");
+    
+    if (s.length() != 9) {
+        println "Byte length unexpected: {s.length()}";
+        exit(1);
+    }
+
+    if (s.utf8_len() != 6) {
+        println "UTF8 Len failed. Got {s.utf8_len()}, expected 6";
+        exit(1);
+    }
+    
+    var globe = s.utf8_at(4);
+    var t3 = String::from("🌎");
+    if (!globe.eq(&t3)) {
+        println "UTF8 At failed";
+        exit(1);
+    }
+    
+    var sub = s.utf8_substr(4, 2); // "🌎!"
+    var t4 = String::from("🌎!");
+    if (!sub.eq(&t4)) {
+        println "UTF8 Substr failed";
+        exit(1);
+    }
+}

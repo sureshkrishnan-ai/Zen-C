@@ -37,6 +37,7 @@ void print_usage()
     printf("  transpile Transpile to C code only (no compilation)\n");
     printf("  lsp     Start Language Server\n");
     printf("Options:\n");
+    printf("  --help          Print this help message\n");
     printf("  --version       Print version information\n");
     printf("  -o <file>       Output executable name\n");
     printf("  --emit-c        Keep generated C file (out.c)\n");
@@ -91,6 +92,11 @@ int main(int argc, char **argv)
     else if (strcmp(command, "build") == 0)
     {
         // default mode
+    }
+    else if (strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0)
+    {
+        print_usage();
+        return 0;
     }
     else if (command[0] == '-')
     {
@@ -260,6 +266,12 @@ int main(int argc, char **argv)
     if (!root)
     {
         // Parse failed
+        return 1;
+    }
+
+    if (!validate_types(&ctx))
+    {
+        // Type validation failed
         return 1;
     }
 

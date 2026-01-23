@@ -1,4 +1,4 @@
-import "tests/features/fstring_mod.zc" as Mod;
+import "tests/features/_fstring_mod.zc" as Mod;
 
 test "alias namespace fstring" {
     // Tests that {Mod::get_val()} is parsed correctly (Mod_get_val)

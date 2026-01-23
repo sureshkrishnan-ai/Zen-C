@@ -5,13 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-void lsp_check_file(const char *uri, const char *src);
-void lsp_goto_definition(const char *uri, int line, int col);
-void lsp_hover(const char *uri, int line, int col);
-void lsp_completion(const char *uri, int line, int col);
-void lsp_document_symbol(const char *uri);
-void lsp_references(const char *uri, int line, int col);
-void lsp_signature_help(const char *uri, int line, int col);
+void lsp_check_file(const char *uri, const char *src, int id);
+void lsp_goto_definition(const char *uri, int line, int col, int id);
+void lsp_hover(const char *uri, int line, int col, int id);
+void lsp_completion(const char *uri, int line, int col, int id);
+void lsp_document_symbol(const char *uri, int id);
+void lsp_references(const char *uri, int line, int col, int id);
+void lsp_signature_help(const char *uri, int line, int col, int id);
 
 // Helper to extract textDocument params
 static void get_params(cJSON *root, char **uri, int *line, int *col)
@@ -56,6 +56,13 @@ void handle_request(const char *json_str)
         return;
     }
 
+    int id = 0;
+    cJSON *id_item = cJSON_GetObjectItem(json, "id");
+    if (id_item)
+    {
+        id = id_item->valueint;
+    }
+
     cJSON *method_item = cJSON_GetObjectItem(json, "method");
     if (!method_item || !method_item->valuestring)
     {
@@ -98,13 +105,15 @@ void handle_request(const char *json_str)
             free(root);
         }
 
-        const char *response = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{"
-                               "\"capabilities\":{\"textDocumentSync\":1,"
-                               "\"definitionProvider\":true,\"hoverProvider\":true,"
-                               "\"referencesProvider\":true,\"documentSymbolProvider\":true,"
-                               "\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\"]},"
-                               "\"completionProvider\":{"
-                               "\"triggerCharacters\":[\".\"]}}}}";
+        const char *response =
+            "{\"jsonrpc\":\"2.0\",\"id\":0,\"result\":{"
+            "\"serverInfo\":{\"name\":\"ZenC LS\",\"version\": \"1.0.0\"},"
+            "\"capabilities\":{\"textDocumentSync\":{\"openClose\":true,\"change\":1},"
+            "\"definitionProvider\":true,\"hoverProvider\":true,"
+            "\"referencesProvider\":true,\"documentSymbolProvider\":true,"
+            "\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\"]},"
+            "\"completionProvider\":{"
+            "\"triggerCharacters\":[\".\"]}}}}";
         fprintf(stdout, "Content-Length: %ld\r\n\r\n%s", strlen(response), response);
         fflush(stdout);
     }
@@ -132,7 +141,7 @@ void handle_request(const char *json_str)
 
                 if (uri && uri->valuestring && text && text->valuestring)
                 {
-                    lsp_check_file(uri->valuestring, text->valuestring);
+                    lsp_check_file(uri->valuestring, text->valuestring, id);
                 }
             }
         }
@@ -144,7 +153,7 @@ void handle_request(const char *json_str)
         get_params(json, &uri, &line, &col);
         if (uri)
         {
-            lsp_goto_definition(uri, line, col);
+            lsp_goto_definition(uri, line, col, id);
             free(uri);
         }
     }
@@ -155,7 +164,7 @@ void handle_request(const char *json_str)
         get_params(json, &uri, &line, &col);
         if (uri)
         {
-            lsp_hover(uri, line, col);
+            lsp_hover(uri, line, col, id);
             free(uri);
         }
     }
@@ -166,7 +175,7 @@ void handle_request(const char *json_str)
         get_params(json, &uri, &line, &col);
         if (uri)
         {
-            lsp_completion(uri, line, col);
+            lsp_completion(uri, line, col, id);
             free(uri);
         }
     }
@@ -177,7 +186,7 @@ void handle_request(const char *json_str)
         get_params(json, &uri, &line, &col);
         if (uri)
         {
-            lsp_document_symbol(uri);
+            lsp_document_symbol(uri, id);
             free(uri);
         }
     }
@@ -188,7 +197,7 @@ void handle_request(const char *json_str)
         get_params(json, &uri, &line, &col);
         if (uri)
         {
-            lsp_references(uri, line, col);
+            lsp_references(uri, line, col, id);
             free(uri);
         }
     }
@@ -199,7 +208,7 @@ void handle_request(const char *json_str)
         get_params(json, &uri, &line, &col);
         if (uri)
         {
-            lsp_signature_help(uri, line, col);
+            lsp_signature_help(uri, line, col, id);
             free(uri);
         }
     }

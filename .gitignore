@@ -17,3 +17,4 @@ compile_commands.json
 vgcore.*
 tests/**/*.o
 plugins/*.so
+.cache

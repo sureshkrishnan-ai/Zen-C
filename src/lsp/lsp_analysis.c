@@ -1,4 +1,3 @@
-#include "json_rpc.h"
 #include "cJSON.h"
 #include "lsp_project.h" // Includes lsp_index.h, parser.h
 #include <ctype.h>
@@ -57,7 +56,7 @@ void lsp_on_error(void *data, Token t, const char *msg)
     }
 }
 
-void lsp_check_file(const char *uri, const char *json_src)
+void lsp_check_file(const char *uri, const char *json_src, int id)
 {
     if (!g_project)
     {
@@ -94,6 +93,7 @@ void lsp_check_file(const char *uri, const char *json_src)
     // Construct JSON Response (publishDiagnostics)
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "jsonrpc", "2.0");
+    cJSON_AddNumberToObject(root, "id", id);
     cJSON_AddStringToObject(root, "method", "textDocument/publishDiagnostics");
 
     cJSON *params = cJSON_CreateObject();
@@ -142,7 +142,7 @@ void lsp_check_file(const char *uri, const char *json_src)
     }
 }
 
-void lsp_goto_definition(const char *uri, int line, int col)
+void lsp_goto_definition(const char *uri, int line, int col, int id)
 {
     ProjectFile *pf = lsp_project_get_file(uri);
     LSPIndex *idx = pf ? pf->index : NULL;
@@ -222,7 +222,7 @@ void lsp_goto_definition(const char *uri, int line, int col)
 
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "jsonrpc", "2.0");
-    cJSON_AddNumberToObject(root, "id", 1);
+    cJSON_AddNumberToObject(root, "id", id);
 
     if (found)
     {
@@ -252,7 +252,7 @@ void lsp_goto_definition(const char *uri, int line, int col)
     send_json_response(root);
 }
 
-void lsp_hover(const char *uri, int line, int col)
+void lsp_hover(const char *uri, int line, int col, int id)
 {
     (void)uri;
     ProjectFile *pf = lsp_project_get_file(uri);
@@ -284,7 +284,7 @@ void lsp_hover(const char *uri, int line, int col)
 
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "jsonrpc", "2.0");
-    cJSON_AddNumberToObject(root, "id", 1);
+    cJSON_AddNumberToObject(root, "id", id);
 
     if (text)
     {
@@ -309,7 +309,7 @@ void lsp_hover(const char *uri, int line, int col)
     send_json_response(root);
 }
 
-void lsp_completion(const char *uri, int line, int col)
+void lsp_completion(const char *uri, int line, int col, int id)
 {
     ProjectFile *pf = lsp_project_get_file(uri);
     // Need global project context
@@ -320,7 +320,7 @@ void lsp_completion(const char *uri, int line, int col)
 
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "jsonrpc", "2.0");
-    cJSON_AddNumberToObject(root, "id", 1);
+    cJSON_AddNumberToObject(root, "id", id);
     cJSON *items = cJSON_CreateArray();
 
     // 1. Context-aware completion (Dot access)
@@ -465,12 +465,12 @@ void lsp_completion(const char *uri, int line, int col)
     send_json_response(root);
 }
 
-void lsp_document_symbol(const char *uri)
+void lsp_document_symbol(const char *uri, int id)
 {
     ProjectFile *pf = lsp_project_get_file(uri);
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "jsonrpc", "2.0");
-    cJSON_AddNumberToObject(root, "id", 1);
+    cJSON_AddNumberToObject(root, "id", id);
 
     if (!pf || !pf->index)
     {
@@ -542,12 +542,12 @@ void lsp_document_symbol(const char *uri)
     send_json_response(root);
 }
 
-void lsp_references(const char *uri, int line, int col)
+void lsp_references(const char *uri, int line, int col, int id)
 {
     ProjectFile *pf = lsp_project_get_file(uri);
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "jsonrpc", "2.0");
-    cJSON_AddNumberToObject(root, "id", 1);
+    cJSON_AddNumberToObject(root, "id", id);
     cJSON *items = cJSON_CreateArray();
 
     if (pf && pf->index)
@@ -615,12 +615,12 @@ void lsp_references(const char *uri, int line, int col)
     send_json_response(root);
 }
 
-void lsp_signature_help(const char *uri, int line, int col)
+void lsp_signature_help(const char *uri, int line, int col, int id)
 {
     ProjectFile *pf = lsp_project_get_file(uri);
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "jsonrpc", "2.0");
-    cJSON_AddNumberToObject(root, "id", 1);
+    cJSON_AddNumberToObject(root, "id", id);
 
     if (!g_project || !g_project->ctx || !pf || !pf->source)
     {

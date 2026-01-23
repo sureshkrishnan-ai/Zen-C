@@ -127,7 +127,11 @@ typedef enum
     NODE_REFLECTION,
     NODE_AWAIT,
     NODE_REPL_PRINT,
-    NODE_CUDA_LAUNCH
+    NODE_CUDA_LAUNCH,
+    NODE_VA_START,
+    NODE_VA_END,
+    NODE_VA_COPY,
+    NODE_VA_ARG
 } NodeType;
 
 // ** AST Node Structure **
@@ -156,8 +160,9 @@ struct ASTNode
         struct
         {
             char *name;
-            char *args;     // Legacy string args.
-            char *ret_type; // Legacy string return type.
+            char *generic_params; // <T, U>
+            char *args;           // Legacy string args.
+            char *ret_type;       // Legacy string return type.
             ASTNode *body;
             Type **arg_types;
             char **defaults;
@@ -560,6 +565,29 @@ struct ASTNode
             ASTNode *shared_mem; // Optional shared memory size (NULL = default)
             ASTNode *stream;     // Optional CUDA stream (NULL = default)
         } cuda_launch;
+
+        struct
+        {
+            ASTNode *ap;
+            ASTNode *last_arg;
+        } va_start;
+
+        struct
+        {
+            ASTNode *ap;
+        } va_end;
+
+        struct
+        {
+            ASTNode *dest;
+            ASTNode *src;
+        } va_copy;
+
+        struct
+        {
+            ASTNode *ap;
+            Type *type_info;
+        } va_arg;
     };
 };
 

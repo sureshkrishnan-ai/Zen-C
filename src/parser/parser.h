@@ -263,11 +263,27 @@ struct ParserContext
     int extern_symbol_count;
 
     // Codegen state:
-    FILE *hoist_out;   // For plugins to hoist code to file scope
-    int skip_preamble; // If 1, codegen_node(NODE_ROOT) won't emit preamble
-    int is_repl;       // REPL mode flag
-    int has_async;     // Track if async features are used
+    FILE *hoist_out;    // For plugins to hoist code to file scope
+    int skip_preamble;  // If 1, codegen_node(NODE_ROOT) won't emit preamble
+    int is_repl;        // REPL mode flag
+    int has_async;      // Track if async features are used
+    int in_defer_block; // Track if currently parsing inside a defer block
+
+    // Type Validation
+    struct TypeUsage *pending_type_validations;
+    int is_speculative; // Flag to suppress side effects during speculative parsing
 };
+
+typedef struct TypeUsage
+{
+    char *name;
+    Token location;
+    struct TypeUsage *next;
+} TypeUsage;
+
+// Type validation prototypes
+void register_type_usage(ParserContext *ctx, const char *name, Token t);
+int validate_types(ParserContext *ctx);
 
 // Token helpers
 char *token_strdup(Token t);
@@ -368,6 +384,10 @@ void register_module(ParserContext *ctx, const char *alias, const char *path);
 void register_selective_import(ParserContext *ctx, const char *symbol, const char *alias,
                                const char *source_module);
 SelectiveImport *find_selective_import(ParserContext *ctx, const char *name);
+
+// Type Aliases
+void register_type_alias(ParserContext *ctx, const char *alias, const char *original);
+const char *find_type_alias(ParserContext *ctx, const char *alias);
 
 // External symbol tracking (C interop)
 void register_extern_symbol(ParserContext *ctx, const char *name);

@@ -1,0 +1,22 @@
+
+test "Variadic Sum" {
+    // We can't define full variadic functions inside tests easily due to closure wrapping in some contexts?
+    // Actually, global functions are better. But tests usually run in main.
+    // Let's rely on declared test function below.
+    assert(sum_all(3, 10, 20, 30) == 60);
+    assert(sum_all(5, 1, 1, 1, 1, 1) == 5);
+    puts("OK");
+}
+
+fn sum_all(count: int, ...) -> int {
+    var total = 0;
+    var ap: va_list;
+    va_start(ap, count);
+    
+    for (var i = 0; i < count; i = i + 1) {
+        total = total + va_arg(ap, int);
+    }
+    
+    va_end(ap);
+    return total;
+}

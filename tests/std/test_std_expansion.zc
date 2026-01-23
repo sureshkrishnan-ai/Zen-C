@@ -33,7 +33,7 @@ test "test_std_expansion" {
     
     "Testing JSON...";
     var j = JsonValue::string("hello");
-    assert(j.kind == JsonType::JSON_STRING, "Json string kind failed");
+    assert(j.kind == JsonType::JSON_STRING(), "Json string kind failed");
     
     "All expansion tests passed!";
 }

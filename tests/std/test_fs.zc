@@ -13,7 +13,7 @@ test "test_std_fs_extended" {
     var p3 = Path::new("file.txt");
     var ext = p3.extension();
     assert(ext.is_some(), "Extension missed");
-    assert(strcmp(ext.unwrap_ref().c_str(), ".txt") == 0, "Wrong extension");
+    assert(strcmp(ext.unwrap_ref().c_str(), "txt") == 0, "Wrong extension");
     
     var p4 = Path::new("/usr/bin/gcc");
     var parent = p4.parent();

@@ -31,7 +31,6 @@ impl String {
         return String::new(s);
     }
 
-    // Fixed: 'self' implies pointer in generated C
     fn c_str(self) -> char* {
         return self.vec.data;
     }
@@ -138,5 +137,182 @@ impl String {
     
     fn free(self) {
         self.vec.free();
+    }
+
+    fn _utf8_seq_len(first_byte: char) -> usize {
+        var b = (int)first_byte;
+        if ((b & 0x80) == 0) { return 1; }
+        if ((b & 0xE0) == 0xC0) { return 2; }
+        if ((b & 0xF0) == 0xE0) { return 3; }
+        if ((b & 0xF8) == 0xF0) { return 4; }
+        return 1; // Fallback
+    }
+
+    fn utf8_len(self) -> usize {
+        var count: usize = 0;
+        var i: usize = 0;
+        var len = self.length();
+        while i < len {
+            var c = self.vec.get(i);
+            i = i + String::_utf8_seq_len(c);
+            count = count + 1;
+        }
+        return count;
+    }
+
+    fn utf8_at(self, idx: usize) -> String {
+        var count: usize = 0;
+        var i: usize = 0;
+        var len = self.length();
+        while i < len {
+            var c = self.vec.get(i);
+            var seq = String::_utf8_seq_len(c);
+            
+            if (count == idx) {
+                return self.substring(i, seq);
+            }
+            
+            i = i + seq;
+            count = count + 1;
+        }
+        return String::new("");
+    }
+
+    fn utf8_substr(self, start_idx: usize, num_chars: usize) -> String {
+        if (num_chars == 0) { return String::new(""); }
+
+        var byte_start: usize = 0;
+        var byte_len: usize = 0;
+        
+        var count: usize = 0;
+        var i: usize = 0;
+        var len = self.length();
+        var found_start = false;
+        
+        while i < len {
+            // Check if we reached the start char
+            if (!found_start && count == start_idx) {
+                byte_start = i;
+                found_start = true;
+                // Reset count to track chars collected
+                count = 0; 
+            } else if (!found_start) {
+                 // Still seeking start
+                 var c = self.vec.get(i);
+                 i = i + String::_utf8_seq_len(c);
+                 count = count + 1;
+                 continue;
+            }
+            
+            // If we are here, we are collecting chars
+            if (count < num_chars) {
+                var c = self.vec.get(i);
+                var seq = String::_utf8_seq_len(c);
+                byte_len = byte_len + seq;
+                i = i + seq;
+                count = count + 1;
+            } else {
+                break;
+            }
+        }
+        
+        if (!found_start) { return String::new(""); }
+        
+        return self.substring(byte_start, byte_len);
+    }
+    fn split(self, delim: char) -> Vec<String> {
+        var parts = Vec<String>::new();
+        var len = self.length();
+        if (len == 0) { return parts; }
+
+        var start: usize = 0;
+        var i: usize = 0;
+        
+        while i < len {
+            if (self.vec.get(i) == delim) {
+                // Found delimiter
+                parts.push(self.substring(start, i - start));
+                start = i + 1;
+            }
+            i = i + 1;
+        }
+        
+        // Push last segment
+        if (start <= len) {
+            parts.push(self.substring(start, len - start));
+        }
+        
+        return parts;
+    }
+
+    fn trim(self) -> String {
+        var start: usize = 0;
+        var len = self.length();
+        var end = len;
+
+        // Find start
+        while (start < len) {
+            var c = self.vec.get(start);
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                break;
+            }
+            start = start + 1;
+        }
+
+        if (start == len) {
+            return String::new("");
+        }
+
+        // Find end
+        while (end > start) {
+            var c = self.vec.get(end - 1);
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                break;
+            }
+            end = end - 1;
+        }
+
+        return self.substring(start, end - start);
+    }
+    
+    fn replace(self, target: char*, replacement: char*) -> String {
+        var t_len = strlen(target);
+        if (t_len == 0) return self.substring(0, self.length()); // clone
+        
+
+        var s_len = self.length();
+        var result = String::new("");
+        
+        var i: usize = 0;
+        while (i < s_len) {
+            // Check if match
+            if (i + t_len <= s_len) {
+                var is_match = true;
+                // Manual strncmp against vec data
+                for (var k: usize = 0; k < t_len; k = k + 1) {
+                    if (self.vec.get(i + k) != target[k]) {
+                        is_match = false;
+                        break;
+                    }
+                }
+                
+                if (is_match) {
+                    var r_str = String::new(replacement);
+                    result.append(&r_str);
+                    i = i + t_len;
+                    continue;
+                }
+            }
+            
+            // Append single char
+            var v = Vec<char>::new();
+            v.push(self.vec.get(i));
+            v.push(0);
+            var ch_s = String::new(v.data);
+            result.append(&ch_s);
+            v.free();
+            i = i + 1;
+        }
+        return result;
     }
 }

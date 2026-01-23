@@ -1,0 +1,32 @@
+import "std/map.zc"
+import "std/string.zc"
+
+test "map_iterator" {
+    var m = Map<int>::new();
+    
+    m.put("one", 1);
+    m.put("two", 2);
+    m.put("three", 3);
+    
+    var count = 0;
+    var sum = 0;
+    
+    for entry in m {
+        count = count + 1;
+        sum = sum + entry.val;
+        
+        println "Key: {entry.key}, Val: {entry.val}";
+    }
+    
+    if (count != 3) {
+        println "Map iterator count failed: {count}";
+        exit(1);
+    }
+    
+    if (sum != 6) {
+        println "Map iterator sum failed: {sum}";
+        exit(1);
+    }
+    
+    m.free();
+}

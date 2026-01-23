@@ -40,3 +40,25 @@ test "match_ref_mover" {
         MyOption::None => {}
     }
 }
+
+struct Hello {
+    world: int;
+}
+
+enum Test {
+  ONE(Hello)
+}
+
+test "match ref binding concrete" {
+    const t = Test::ONE(Hello{ world: 123 });
+
+    var val = 0;
+    match t {
+        Test::ONE(ref o) => { 
+            // o should be Hello*
+            val = o.world;
+        }
+    }
+    
+    assert(val == 123, "Ref binding validation failed");
+}

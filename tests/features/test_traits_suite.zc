@@ -97,8 +97,8 @@ test "test_derive" {
     assert(p2.x == 10, "Clone x matches");
     
     // Eq
-    assert(p1.eq(p2) == true, "Eq works (true)");
+    assert(p1.eq(&p2) == true, "Eq works (true)");
     
     var p3 = Point{x: 10, y: 21};
-    assert(p1.eq(p3) == false, "Eq works (false)");
+    assert(p1.eq(&p3) == false, "Eq works (false)");
 }

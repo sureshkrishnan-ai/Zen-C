@@ -1,0 +1,79 @@
+
+test "defer_runs_on_break" {
+    var result = 0;
+    
+    for i in 0..5 {
+        defer { result = result + 1; }
+        
+        if i == 2 {
+            break;
+        }
+    }
+    
+    assert(result == 3, "defer should run on break");
+}
+
+test "defer_runs_on_continue" {
+    var result = 0;
+    
+    for i in 0..5 {
+        defer { result = result + 1; }
+        
+        if i == 2 {
+            continue;
+        }
+    }
+    
+    assert(result == 5, "defer should run on continue");
+}
+
+fn early_return(x: int) -> int {
+    var side_effect = 0;
+    defer { side_effect = 42; }
+    
+    if x > 0 {
+        return x + side_effect;
+    }
+    
+    return 0;
+}
+
+test "defer_runs_on_return" {
+    var result = early_return(10);
+    assert(result == 10, "early return should work with defer");
+}
+
+test "defer_lifo_order" {
+    var result = 0;
+    
+    for i in 0..2 {
+        defer { result = result * 10 + 1; }
+        defer { result = result * 10 + 2; }
+        
+        if i == 0 {
+            break;
+        }
+    }
+    
+    assert(result == 21, "defers should run in LIFO order");
+}
+
+test "nested_loops_defer" {
+    var outer_count = 0;
+    var inner_count = 0;
+    
+    for i in 0..3 {
+        defer { outer_count = outer_count + 1; }
+        
+        for j in 0..4 {
+            defer { inner_count = inner_count + 1; }
+            
+            if j == 2 {
+                break;
+            }
+        }
+    }
+    
+    assert(inner_count == 9, "inner loop defer should run correctly");
+    assert(outer_count == 3, "outer loop defer should run correctly");
+}

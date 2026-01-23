@@ -16,14 +16,50 @@ ASTNode *defer_stack[MAX_DEFER];
 int defer_count = 0;
 ASTNode *g_current_lambda = NULL;
 
+int loop_defer_boundary[MAX_LOOP_DEPTH];
+int loop_depth = 0;
+int func_defer_boundary = 0;
+
+// Strip template suffix from a type name (for example, "MyStruct<T>" -> "MyStruct")
+// Returns newly allocated string, caller must free.
+char *strip_template_suffix(const char *name)
+{
+    if (!name)
+    {
+        return NULL;
+    }
+    char *lt = strchr(name, '<');
+    if (lt)
+    {
+        int len = lt - name;
+        char *buf = xmalloc(len + 1);
+        strncpy(buf, name, len);
+        buf[len] = 0;
+        return buf;
+    }
+    return xstrdup(name);
+}
+
 // Helper to emit variable declarations with array types.
 void emit_var_decl_type(ParserContext *ctx, FILE *out, const char *type_str, const char *var_name)
 {
     (void)ctx;
 
     char *bracket = strchr(type_str, '[');
+    char *generic = strchr(type_str, '<');
 
-    if (bracket)
+    if (generic && (!bracket || generic < bracket))
+    {
+        // Strip generic part for C output
+        int base_len = generic - type_str;
+        fprintf(out, "%.*s %s", base_len, type_str, var_name);
+
+        if (bracket)
+        {
+            fprintf(out, "%s", bracket);
+        }
+    }
+    else if (bracket)
     {
         int base_len = bracket - type_str;
         fprintf(out, "%.*s %s%s", base_len, type_str, var_name, bracket);
@@ -112,7 +148,8 @@ char *infer_type(ParserContext *ctx, ASTNode *node)
     {
         return NULL;
     }
-    if (node->resolved_type && strcmp(node->resolved_type, "unknown") != 0)
+    if (node->resolved_type && strcmp(node->resolved_type, "unknown") != 0 &&
+        strcmp(node->resolved_type, "void*") != 0)
     {
         return node->resolved_type;
     }
@@ -151,6 +188,16 @@ char *infer_type(ParserContext *ctx, ASTNode *node)
             {
                 if (sig->is_async)
                 {
+                    if (sig->ret_type)
+                    {
+                        char *inner = codegen_type_to_string(sig->ret_type);
+                        if (inner)
+                        {
+                            char *buf = xmalloc(strlen(inner) + 10);
+                            sprintf(buf, "Async<%s>", inner);
+                            return buf;
+                        }
+                    }
                     return "Async";
                 }
                 if (sig->ret_type)
@@ -361,7 +408,28 @@ char *infer_type(ParserContext *ctx, ASTNode *node)
     if (node->type == NODE_AWAIT)
     {
         // Infer underlying type T from await Async<T>
-        // If it's a direct call await foo(), we know T from foo's signature.
+        // Check operand type for Generics <T>
+        char *op_type = infer_type(ctx, node->unary.operand);
+        if (op_type)
+        {
+            char *start = strchr(op_type, '<');
+            if (start)
+            {
+                start++; // Skip <
+                char *end = strrchr(op_type, '>');
+                if (end && end > start)
+                {
+                    int len = end - start;
+                    char *extracted = xmalloc(len + 1);
+                    strncpy(extracted, start, len);
+                    extracted[len] = 0;
+                    return extracted;
+                }
+            }
+        }
+
+        // Fallback: If it's a direct call await foo(), we can lookup signature even if generic
+        // syntax wasn't used
         if (node->unary.operand->type == NODE_EXPR_CALL &&
             node->unary.operand->call.callee->type == NODE_EXPR_VAR)
         {

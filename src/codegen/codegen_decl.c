@@ -7,42 +7,44 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Emit C preamble with standard includes and type definitions.
+static void emit_freestanding_preamble(FILE *out)
+{
+    fputs("#include <stddef.h>\n#include <stdint.h>\n#include "
+          "<stdbool.h>\n#include <stdarg.h>\n",
+          out);
+    fputs("#ifdef __TINYC__\n#define __auto_type __typeof__\n#endif\n", out);
+    fputs("typedef size_t usize;\ntypedef char* string;\n", out);
+    fputs("#define U0 void\n#define I8 int8_t\n#define U8 uint8_t\n#define I16 "
+          "int16_t\n#define U16 uint16_t\n",
+          out);
+    fputs("#define I32 int32_t\n#define U32 uint32_t\n#define I64 "
+          "int64_t\n#define U64 "
+          "uint64_t\n",
+          out);
+    fputs("#define F32 float\n#define F64 double\n", out);
+    fputs("#define _z_str(x) _Generic((x), _Bool: \"%d\", char: \"%c\", "
+          "signed char: \"%c\", unsigned char: \"%u\", short: \"%d\", "
+          "unsigned short: \"%u\", int: \"%d\", unsigned int: \"%u\", "
+          "long: \"%ld\", unsigned long: \"%lu\", long long: \"%lld\", "
+          "unsigned long long: \"%llu\", float: \"%f\", double: \"%f\", "
+          "char*: \"%s\", void*: \"%p\")\n",
+          out);
+    fputs("typedef struct { void *func; void *ctx; } z_closure_T;\n", out);
+
+    fputs("__attribute__((weak)) void* z_malloc(usize sz) { return NULL; }\n", out);
+    fputs("__attribute__((weak)) void* z_realloc(void* ptr, usize sz) { return "
+          "NULL; }\n",
+          out);
+    fputs("__attribute__((weak)) void z_free(void* ptr) { }\n", out);
+    fputs("__attribute__((weak)) void z_print(const char* fmt, ...) { }\n", out);
+    fputs("__attribute__((weak)) void z_panic(const char* msg) { while(1); }\n", out);
+}
+
 void emit_preamble(ParserContext *ctx, FILE *out)
 {
     if (g_config.is_freestanding)
     {
-        // Freestanding preamble.
-        // It actually needs more work, but yk.
-        fputs("#include <stddef.h>\n#include <stdint.h>\n#include "
-              "<stdbool.h>\n#include <stdarg.h>\n",
-              out);
-        fputs("#ifdef __TINYC__\n#define __auto_type __typeof__\n#endif\n", out);
-        fputs("typedef size_t usize;\ntypedef char* string;\n", out);
-        fputs("#define U0 void\n#define I8 int8_t\n#define U8 uint8_t\n#define I16 "
-              "int16_t\n#define U16 uint16_t\n",
-              out);
-        fputs("#define I32 int32_t\n#define U32 uint32_t\n#define I64 "
-              "int64_t\n#define U64 "
-              "uint64_t\n",
-              out);
-        fputs("#define F32 float\n#define F64 double\n", out);
-        fputs("#define _z_str(x) _Generic((x), _Bool: \"%d\", char: \"%c\", "
-              "signed char: \"%c\", unsigned char: \"%u\", short: \"%d\", "
-              "unsigned short: \"%u\", int: \"%d\", unsigned int: \"%u\", "
-              "long: \"%ld\", unsigned long: \"%lu\", long long: \"%lld\", "
-              "unsigned long long: \"%llu\", float: \"%f\", double: \"%f\", "
-              "char*: \"%s\", void*: \"%p\")\n",
-              out);
-        fputs("typedef struct { void *func; void *ctx; } z_closure_T;\n", out);
-
-        fputs("__attribute__((weak)) void* z_malloc(usize sz) { return NULL; }\n", out);
-        fputs("__attribute__((weak)) void* z_realloc(void* ptr, usize sz) { return "
-              "NULL; }\n",
-              out);
-        fputs("__attribute__((weak)) void z_free(void* ptr) { }\n", out);
-        fputs("__attribute__((weak)) void z_print(const char* fmt, ...) { }\n", out);
-        fputs("__attribute__((weak)) void z_panic(const char* msg) { while(1); }\n", out);
+        emit_freestanding_preamble(out);
     }
     else
     {
@@ -705,13 +707,9 @@ void emit_protos(ASTNode *node, FILE *out)
             }
             else
             {
-                char *lt = strchr(sname, '<');
-                if (lt)
+                char *buf = strip_template_suffix(sname);
+                if (buf)
                 {
-                    int len = lt - sname;
-                    char *buf = xmalloc(len + 1);
-                    strncpy(buf, sname, len);
-                    buf[len] = 0;
                     def = find_struct_def_codegen(g_parser_ctx, buf);
                     if (def && def->strct.is_template)
                     {
@@ -734,6 +732,11 @@ void emit_protos(ASTNode *node, FILE *out)
             ASTNode *m = f->impl.methods;
             while (m)
             {
+                if (m->func.generic_params)
+                {
+                    m = m->next;
+                    continue;
+                }
                 char *fname = m->func.name;
                 char *proto = xmalloc(strlen(fname) + strlen(sname) + 2);
                 int slen = strlen(sname);
@@ -782,13 +785,9 @@ void emit_protos(ASTNode *node, FILE *out)
             }
             else
             {
-                char *lt = strchr(sname, '<');
-                if (lt)
+                char *buf = strip_template_suffix(sname);
+                if (buf)
                 {
-                    int len = lt - sname;
-                    char *buf = xmalloc(len + 1);
-                    strncpy(buf, sname, len);
-                    buf[len] = 0;
                     def = find_struct_def_codegen(g_parser_ctx, buf);
                     if (def && def->strct.is_template)
                     {
@@ -816,6 +815,11 @@ void emit_protos(ASTNode *node, FILE *out)
             ASTNode *m = f->impl_trait.methods;
             while (m)
             {
+                if (m->func.generic_params)
+                {
+                    m = m->next;
+                    continue;
+                }
                 if (m->func.is_async)
                 {
                     fprintf(out, "Async %s(%s);\n", m->func.name, m->func.args);
@@ -896,13 +900,9 @@ void emit_impl_vtables(ParserContext *ctx, FILE *out)
             }
             else
             {
-                char *lt = strchr(strct, '<');
-                if (lt)
+                char *buf = strip_template_suffix(strct);
+                if (buf)
                 {
-                    int len = lt - strct;
-                    char *buf = xmalloc(len + 1);
-                    strncpy(buf, strct, len);
-                    buf[len] = 0;
                     def = find_struct_def_codegen(ctx, buf);
                     if (def && def->strct.is_template)
                     {
@@ -968,8 +968,8 @@ void emit_impl_vtables(ParserContext *ctx, FILE *out)
     }
 }
 
-// Emit test functions and runner
-void emit_tests_and_runner(ParserContext *ctx, ASTNode *node, FILE *out)
+// Emit test functions and runner. Returns number of tests emitted.
+int emit_tests_and_runner(ParserContext *ctx, ASTNode *node, FILE *out)
 {
     ASTNode *cur = node;
     int test_count = 0;
@@ -993,10 +993,7 @@ void emit_tests_and_runner(ParserContext *ctx, ASTNode *node, FILE *out)
         }
         fprintf(out, "}\n\n");
     }
-    else
-    {
-        fprintf(out, "void _z_run_tests() {}\n");
-    }
+    return test_count;
 }
 
 // Emit type definitions-

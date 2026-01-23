@@ -13,8 +13,11 @@ SRCS = src/main.c \
        src/parser/parser_stmt.c \
        src/parser/parser_type.c \
        src/parser/parser_utils.c \
+       src/parser/parser_decl.c \
+       src/parser/parser_struct.c \
        src/ast/ast.c \
        src/codegen/codegen.c \
+       src/codegen/codegen_stmt.c \
        src/codegen/codegen_decl.c \
        src/codegen/codegen_main.c \
        src/codegen/codegen_utils.c \

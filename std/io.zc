@@ -1,42 +1,68 @@
 
 import "./core.zc"
+import "./string.zc"
 
 raw {
-    char* format(const char* fmt, ...) {
-        static char buffer[1024];
-        va_list args;
-        va_start(args, fmt);
-        vsnprintf(buffer, sizeof(buffer), fmt, args);
-        va_end(args);
-        return buffer;
+    int _z_vprintf(char* fmt, va_list ap) {
+        return vprintf((const char*)fmt, ap);
     }
     
-    char* format_new(const char* fmt, ...) {
-        char* buffer = malloc(1024);
-        va_list args;
-        va_start(args, fmt);
-        vsnprintf(buffer, 1024, fmt, args);
-        va_end(args);
-        return buffer;
+    int _z_vsnprintf(char* str, size_t size, char* fmt, va_list ap) {
+        return vsnprintf(str, size, (const char*)fmt, ap);
     }
 
-    void* _z_get_stdin() 
-    { 
-        return stdin; 
-    }
-
-    int _z_get_eof() 
-    { 
-        return EOF; 
-    }
-
-    int _z_fgetc(void* stream) 
-    { 
-        return fgetc((FILE*)stream); 
-    }
+    void* _z_get_stdin() { return stdin; }
+    int _z_get_eof() { return EOF; }
+    int _z_fgetc(void* stream) { return fgetc((FILE*)stream); }
 }
 
+extern fn _z_vprintf(fmt: char*, ap: va_list) -> int;
+extern fn _z_vsnprintf(str: char*, size: usize, fmt: char*, ap: va_list) -> int;
 
+fn format(fmt: char*, ...) -> char* {
+    static var buffer: char[1024];
+    var ap: va_list;
+    va_start(ap, fmt);
+    _z_vsnprintf(buffer, 1024, fmt, ap);
+    va_end(ap);
+    return (char*)buffer;
+}
+
+fn format_into(buffer: char*, size: usize, fmt: char*, ...) -> int {
+    var ap: va_list;
+    va_start(ap, fmt);
+    var ret = _z_vsnprintf(buffer, size, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+fn format_new(fmt: char*, ...) -> char* {
+    var buffer: char* = malloc(1024);
+    if buffer == NULL return NULL;
+    
+    var ap: va_list;
+    va_start(ap, fmt);
+    _z_vsnprintf(buffer, 1024, fmt, ap);
+    va_end(ap);
+    return buffer;
+}
+
+fn print(fmt: char*, ...) -> int {
+    var ap: va_list;
+    va_start(ap, fmt);
+    var ret = _z_vprintf(fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+fn println(fmt: char*, ...) -> int {
+    var ap: va_list;
+    va_start(ap, fmt);
+    var ret = _z_vprintf(fmt, ap);
+    va_end(ap);
+    puts("");
+    return ret + 1;
+}
 
 fn readln() -> char* {
     var cap: usize = 64;

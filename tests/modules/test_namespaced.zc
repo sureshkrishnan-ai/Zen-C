@@ -1,6 +1,6 @@
 
-import "./test_modules/math.zc" as math;
-import "./test_modules/physics.zc" as physics;
+import "./test_modules/_math.zc" as math;
+import "./test_modules/_physics.zc" as physics;
 
 test "test_namespaced_imports" {
     var mv = math::Vector::new(3, 4);

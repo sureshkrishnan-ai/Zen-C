@@ -23,6 +23,62 @@ struct Map<V> {
     cap: usize;
 }
 
+struct MapEntry<V> {
+    key: char*;
+    val: V;
+}
+
+struct MapIter<V> {
+    keys: char**;
+    vals: V*;
+    occupied: bool*;
+    deleted: bool*;
+    cap: usize;
+    idx: usize;
+}
+
+struct MapIterResult<V> {
+    entry: MapEntry<V>;
+    has_val: bool;
+}
+
+impl MapIterResult<V> {
+    fn is_none(self) -> bool {
+        return !self.has_val;
+    }
+    
+    fn unwrap(self) -> MapEntry<V> {
+        if (!self.has_val) {
+             !"Panic: Map iterator unwrap on None";
+             exit(1);
+        }
+        return self.entry;
+    }
+}
+
+impl MapIter<V> {
+    fn next(self) -> MapIterResult<V> {
+        while self.idx < self.cap {
+            var i = self.idx;
+            self.idx = self.idx + 1;
+            
+            if (self.occupied[i] && !self.deleted[i]) {
+                var entry = MapEntry<V> {
+                    key: self.keys[i],
+                    val: self.vals[i]
+                };
+                return MapIterResult<V> {
+                    entry: entry,
+                    has_val: true
+                };
+            }
+        }
+        // Empty entry for None
+        var empty = MapEntry<V> { key: 0, val: self.vals[0] }; // Should be 0-init if possible
+        return MapIterResult<V> { entry: empty, has_val: false };
+    }
+}
+
 impl Map<V> {
     fn new() -> Map<V> {
         return Map<V> { keys: 0, vals: 0, occupied: 0, deleted: 0, len: 0, cap: 0 };
@@ -179,5 +235,16 @@ impl Map<V> {
     
     fn val_at(self, idx: usize) -> V {
         return self.vals[idx];
+    }
+
+    fn iterator(self) -> MapIter<V> {
+        return MapIter<V> {
+            keys: self.keys,
+            vals: self.vals,
+            occupied: self.occupied,
+            deleted: self.deleted,
+            cap: self.cap,
+            idx: 0
+        };
     }
 }
