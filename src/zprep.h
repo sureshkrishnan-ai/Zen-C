@@ -186,6 +186,14 @@ typedef struct
     int use_cpp;         // 1 if --cpp (emit C++ compatible code).
     int use_cuda;        // 1 if --cuda (emit CUDA-compatible code).
 
+    // Cloud-native build options.
+    int cloud_docker;    // 1 if --cloud=docker or --cloud=k8s
+    int cloud_k8s;       // 1 if --cloud=k8s
+    int cloud_push;      // 1 if --push (push to registry).
+    char *registry_url;  // --registry=<url>
+    char *image_tag;     // --tag=<tag>
+    char *config_file;   // --config=<file> (default: zen.toml)
+
     // GCC Flags accumulator.
     char gcc_flags[4096];
 

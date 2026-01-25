@@ -3,6 +3,7 @@
 #include "plugins/plugin_manager.h"
 #include "repl/repl.h"
 #include "zen/zen_facts.h"
+#include "cloud/cloud.h"
 #include "zprep.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,12 +31,12 @@ void print_usage()
 {
     printf("Usage: zc [command] [options] <file.zc>\n");
     printf("Commands:\n");
-    printf("  run     Compile and run the program\n");
-    printf("  build   Compile to executable\n");
-    printf("  check   Check for errors only\n");
-    printf("  repl    Start Interactive REPL\n");
+    printf("  run       Compile and run the program\n");
+    printf("  build     Compile to executable\n");
+    printf("  check     Check for errors only\n");
+    printf("  repl      Start Interactive REPL\n");
     printf("  transpile Transpile to C code only (no compilation)\n");
-    printf("  lsp     Start Language Server\n");
+    printf("  lsp       Start Language Server\n");
     printf("Options:\n");
     printf("  --help          Print this help message\n");
     printf("  --version       Print version information\n");
@@ -51,6 +52,14 @@ void print_usage()
     printf("  -c              Compile only (produce .o)\n");
     printf("  --cpp           Use C++ mode.\n");
     printf("  --cuda          Use CUDA mode (requires nvcc).\n");
+    printf("Cloud Build Options:\n");
+    printf("  --cloud=TYPE    Cloud build type:\n");
+    printf("                    docker - Build Docker image only\n");
+    printf("                    k8s    - Build Docker image + K8s manifests\n");
+    printf("  --config=FILE   Config file (default: zen.toml)\n");
+    printf("  --push          Push Docker image to registry\n");
+    printf("  --registry=URL  Container registry (e.g., ghcr.io/user)\n");
+    printf("  --tag=TAG       Image tag (default: from config or 0.1.0)\n");
 }
 
 int main(int argc, char **argv)
@@ -164,6 +173,40 @@ int main(int argc, char **argv)
             strcpy(g_config.cc, "nvcc");
             g_config.use_cuda = 1;
             g_config.use_cpp = 1; // CUDA implies C++ mode.
+        }
+        else if (strncmp(arg, "--cloud=", 8) == 0)
+        {
+            const char *cloud_type = arg + 8;
+            if (strcmp(cloud_type, "docker") == 0)
+            {
+                g_config.cloud_docker = 1;
+            }
+            else if (strcmp(cloud_type, "k8s") == 0)
+            {
+                g_config.cloud_docker = 1; // k8s implies docker
+                g_config.cloud_k8s = 1;
+            }
+            else
+            {
+                printf("Unknown cloud type: %s (use 'docker' or 'k8s')\n", cloud_type);
+                return 1;
+            }
+        }
+        else if (strcmp(arg, "--push") == 0)
+        {
+            g_config.cloud_push = 1;
+        }
+        else if (strncmp(arg, "--registry=", 11) == 0)
+        {
+            g_config.registry_url = arg + 11;
+        }
+        else if (strncmp(arg, "--tag=", 6) == 0)
+        {
+            g_config.image_tag = arg + 6;
+        }
+        else if (strncmp(arg, "--config=", 9) == 0)
+        {
+            g_config.config_file = arg + 9;
         }
         else if (strcmp(arg, "--check") == 0)
         {
@@ -363,6 +406,32 @@ int main(int argc, char **argv)
     {
         // remove("out.c"); // Keep it for debugging for now or follow flag
         remove(temp_source_file);
+    }
+
+    // Cloud build integration
+    if (g_config.cloud_docker || g_config.cloud_k8s)
+    {
+        if (!g_config.quiet)
+        {
+            printf("[zc] Starting cloud build...\n");
+        }
+
+        int cloud_success = cloud_build(
+            outfile, outfile,
+            g_config.cloud_docker,
+            g_config.cloud_k8s,
+            g_config.cloud_push,
+            g_config.registry_url,
+            g_config.image_tag,
+            g_config.config_file,
+            g_config.verbose);
+
+        if (!cloud_success)
+        {
+            fprintf(stderr, "[zc] Cloud build failed.\n");
+            zptr_plugin_mgr_cleanup();
+            return 1;
+        }
     }
 
     if (g_config.mode_run)

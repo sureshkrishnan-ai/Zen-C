@@ -1,0 +1,10 @@
+# CLI Tool Configuration
+
+[package]
+name = "cli-tool"
+version = "0.1.0"
+description = "Command-line utility"
+
+[docker]
+base_image = "debian:bookworm-slim"
+# CLI tools don't need exposed ports

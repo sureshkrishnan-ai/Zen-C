@@ -1,0 +1,36 @@
+// Batch Job Example
+// A container that processes data and exits
+//
+// Build: zc build batch_job.zc -o batch_job --docker
+// Run:   docker run --rm batch_job:0.1.0
+
+fn process_item(id: int) -> int {
+    printf("Processing item %d...\n", id);
+    // Simulate work
+    let result = id * 2;
+    printf("  Result: %d\n", result);
+    return result;
+}
+
+fn main() -> int {
+    println "================================";
+    println "  Zen-C Batch Processor";
+    println "================================";
+    println "";
+
+    let items = 10;
+    let total = 0;
+
+    println "Starting batch processing...";
+
+    for (let i = 1; i <= items; i = i + 1) {
+        total = total + process_item(i);
+    }
+
+    printf("\nProcessed %d items\n", items);
+    printf("Total sum: %d\n", total);
+    println "";
+    println "Batch job completed successfully!";
+
+    return 0;
+}

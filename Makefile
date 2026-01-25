@@ -3,7 +3,7 @@
 # To build with clang: make CC=clang
 # To build with zig:   make CC="zig cc"
 CC = gcc
-CFLAGS = -Wall -Wextra -g -I./src -I./src/ast -I./src/parser -I./src/codegen -I./plugins -I./src/zen -I./src/utils -I./src/lexer -I./src/analysis -I./src/lsp
+CFLAGS = -Wall -Wextra -g -I./src -I./src/ast -I./src/parser -I./src/codegen -I./plugins -I./src/zen -I./src/utils -I./src/lexer -I./src/analysis -I./src/lsp -I./src/cloud
 TARGET = zc
 LIBS = -lm -lpthread -ldl
 
@@ -32,7 +32,12 @@ SRCS = src/main.c \
        src/lsp/cJSON.c \
        src/zen/zen_facts.c \
        src/repl/repl.c \
-       src/plugins/plugin_manager.c
+       src/plugins/plugin_manager.c \
+       src/cloud/toml.c \
+       src/cloud/cloud_config.c \
+       src/cloud/cloud.c \
+       src/cloud/docker.c \
+       src/cloud/kubernetes.c
 
 OBJ_DIR = obj
 OBJS = $(patsubst %.c, $(OBJ_DIR)/%.o, $(SRCS))

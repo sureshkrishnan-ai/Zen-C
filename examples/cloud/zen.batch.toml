@@ -1,0 +1,18 @@
+# Batch Job Configuration
+
+[package]
+name = "batch-job"
+version = "0.1.0"
+description = "Batch data processor"
+
+[docker]
+base_image = "debian:bookworm-slim"
+# No ports needed for batch jobs
+
+[kubernetes]
+# Batch jobs typically use Kubernetes Jobs, not Deployments
+# For now, we generate a Deployment that runs once
+replicas = 1
+namespace = "default"
+cpu_request = "100m"
+memory_request = "64Mi"

@@ -1,0 +1,38 @@
+// Cloud Build Example
+// A simple HTTP server demonstrating Zen-C cloud deployment
+//
+// Build with Docker:
+//   zc build hello.zc -o hello --docker
+//
+// Build with Kubernetes manifests:
+//   zc build hello.zc -o hello --k8s
+//
+// Full deploy (requires Docker and kubectl):
+//   zc deploy hello.zc -o hello --registry=ghcr.io/youruser
+
+fn main() -> int {
+    println "=================================";
+    println "  Zen-C Cloud Application";
+    println "  Version: 0.1.0";
+    println "=================================";
+    println "";
+    println "Server starting on port 8080...";
+    println "Health endpoint: /health";
+    println "";
+
+    // Simulate a simple server loop
+    let running = 1;
+    let requests = 0;
+
+    while (running) {
+        // In a real app, this would be an actual HTTP server
+        // For demo, we just print a message and exit
+        println "Ready to serve requests!";
+        println "Press Ctrl+C to stop.";
+
+        // Exit after showing the message (for demo purposes)
+        running = 0;
+    }
+
+    return 0;
+}

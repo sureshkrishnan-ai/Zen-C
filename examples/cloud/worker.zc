@@ -1,0 +1,35 @@
+// Worker Example
+// A long-running container that processes tasks
+//
+// Build: zc build worker.zc -o worker --cloud=docker --config=zen.worker.toml
+// Run:   docker run --rm worker:0.1.0
+
+fn simulate_task(id: int) -> int {
+    // Simulate work
+    let work_units = id * 2;
+    return work_units;
+}
+
+fn main() -> int {
+    println "================================";
+    println "  Zen-C Background Worker";
+    println "================================";
+    println "";
+    println "Worker started. Processing tasks...";
+    println "";
+
+    let max_tasks = 5;
+
+    for (let i = 1; i <= max_tasks; i = i + 1) {
+        printf("[Task %d] Starting...\n", i);
+
+        // Simulate work
+        let units = simulate_task(i);
+        printf("[Task %d] Completed %d work units\n", i, units);
+    }
+
+    println "";
+    printf("Worker finished. Processed %d tasks.\n", max_tasks);
+
+    return 0;
+}

@@ -1,0 +1,78 @@
+// CLI Tool Example
+// A containerized command-line utility
+//
+// Build: zc build cli_tool.zc -o cli_tool --docker
+// Run:   docker run --rm cli_tool:0.1.0 hello world
+
+fn print_usage() {
+    println "Usage: cli_tool <command> [args...]";
+    println "";
+    println "Commands:";
+    println "  hello <name>    Say hello to someone";
+    println "  count <n>       Count from 1 to n";
+    println "  reverse <text>  Reverse a string";
+    println "  version         Show version";
+}
+
+fn cmd_hello(name: char*) {
+    printf("Hello, %s!\n", name);
+}
+
+fn cmd_count(n: int) {
+    printf("Counting to %d:\n", n);
+    for (let i = 1; i <= n; i = i + 1) {
+        printf("%d ", i);
+    }
+    println "";
+}
+
+fn cmd_reverse(text: char*) {
+    let len = strlen(text);
+    printf("Reversed: ");
+    for (let i = len - 1; i >= 0; i = i - 1) {
+        printf("%c", text[i]);
+    }
+    println "";
+}
+
+fn main(argc: int, argv: char**) -> int {
+    if (argc < 2) {
+        print_usage();
+        return 1;
+    }
+
+    let cmd = argv[1];
+
+    if (strcmp(cmd, "hello") == 0) {
+        if (argc < 3) {
+            println "Error: hello requires a name";
+            return 1;
+        }
+        cmd_hello(argv[2]);
+    }
+    else if (strcmp(cmd, "count") == 0) {
+        if (argc < 3) {
+            println "Error: count requires a number";
+            return 1;
+        }
+        cmd_count(atoi(argv[2]));
+    }
+    else if (strcmp(cmd, "reverse") == 0) {
+        if (argc < 3) {
+            println "Error: reverse requires text";
+            return 1;
+        }
+        cmd_reverse(argv[2]);
+    }
+    else if (strcmp(cmd, "version") == 0) {
+        println "cli_tool v0.1.0";
+        println "Built with Zen-C Cloud Build";
+    }
+    else {
+        printf("Unknown command: %s\n", cmd);
+        print_usage();
+        return 1;
+    }
+
+    return 0;
+}
