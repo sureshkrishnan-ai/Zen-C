@@ -388,6 +388,38 @@ void emit_struct_defs(ParserContext *ctx, ASTNode *node, FILE *out)
             {
                 fprintf(out, " __attribute__((visibility(\"default\")))");
             }
+
+            if (node->strct.attributes)
+            {
+                fprintf(out, " __attribute__((");
+                Attribute *custom = node->strct.attributes;
+                int first = 1;
+                while (custom)
+                {
+                    if (!first)
+                    {
+                        fprintf(out, ", ");
+                    }
+                    fprintf(out, "%s", custom->name);
+                    if (custom->arg_count > 0)
+                    {
+                        fprintf(out, "(");
+                        for (int i = 0; i < custom->arg_count; i++)
+                        {
+                            if (i > 0)
+                            {
+                                fprintf(out, ", ");
+                            }
+                            fprintf(out, "%s", custom->args[i]);
+                        }
+                        fprintf(out, ")");
+                    }
+                    first = 0;
+                    custom = custom->next;
+                }
+                fprintf(out, "))");
+            }
+
             fprintf(out, ";\n\n");
         }
         else if (node->type == NODE_ENUM)

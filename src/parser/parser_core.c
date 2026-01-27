@@ -72,11 +72,13 @@ ASTNode *parse_program_nodes(ParserContext *ctx, Lexer *l)
         char *derived_traits[32];
         int derived_count = 0;
 
+        Attribute *current_custom_attributes = NULL;
+
         while (t.type == TOK_AT)
         {
             lexer_next(l);
             Token attr = lexer_next(l);
-            if (attr.type != TOK_IDENT && attr.type != TOK_COMPTIME)
+            if (attr.type != TOK_IDENT && attr.type != TOK_COMPTIME && attr.type != TOK_ALIAS)
             {
                 zpanic_at(attr, "Expected attribute name after @");
             }
@@ -250,7 +252,49 @@ ASTNode *parse_program_nodes(ParserContext *ctx, Lexer *l)
                 }
                 else
                 {
-                    zwarn_at(attr, "Unknown attribute: %.*s", attr.len, attr.start);
+                    Attribute *new_attr = xmalloc(sizeof(Attribute));
+                    new_attr->name = token_strdup(attr);
+                    new_attr->args = NULL;
+                    new_attr->arg_count = 0;
+                    new_attr->next = current_custom_attributes; // Prepend
+                    current_custom_attributes = new_attr;
+
+                    if (lexer_peek(l).type == TOK_LPAREN)
+                    {
+                        lexer_next(l); // eat (
+                        while (1)
+                        {
+                            Token t = lexer_next(l);
+                            new_attr->args =
+                                realloc(new_attr->args, sizeof(char *) * (new_attr->arg_count + 1));
+
+                            if (t.type == TOK_STRING)
+                            {
+                                new_attr->args[new_attr->arg_count++] = token_strdup(t);
+                            }
+                            else
+                            {
+                                new_attr->args[new_attr->arg_count++] = token_strdup(t);
+                            }
+
+                            if (lexer_peek(l).type == TOK_COMMA)
+                            {
+                                lexer_next(l);
+                            }
+                            else if (lexer_peek(l).type == TOK_RPAREN)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                zpanic_at(lexer_peek(l), "Expected , or ) in attribute args");
+                            }
+                        }
+                        if (lexer_next(l).type != TOK_RPAREN)
+                        {
+                            zpanic_at(lexer_peek(l), "Expected )");
+                        }
+                    }
                 }
             }
 
@@ -500,6 +544,7 @@ ASTNode *parse_program_nodes(ParserContext *ctx, Lexer *l)
             s->func.cuda_global = attr_cuda_global;
             s->func.cuda_device = attr_cuda_device;
             s->func.cuda_host = attr_cuda_host;
+            s->func.attributes = current_custom_attributes;
 
             if (attr_deprecated && s->func.name)
             {
@@ -519,6 +564,7 @@ ASTNode *parse_program_nodes(ParserContext *ctx, Lexer *l)
         if (s && s->type == NODE_STRUCT)
         {
             s->strct.is_export = attr_export;
+            s->strct.attributes = current_custom_attributes;
             s->strct.is_packed = attr_packed || s->strct.is_packed;
             if (attr_align)
             {

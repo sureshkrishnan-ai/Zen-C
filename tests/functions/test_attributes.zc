@@ -137,3 +137,17 @@ struct MyExportedStruct {
     a: int;
     b: int;
 }
+
+@flatten
+fn my_flattened_func() {
+   // This uses a custom GCC attribute that ZenC doesn't know about natively.
+}
+
+@custom_section(".my_const_data")
+struct CustomSectionStruct {
+    x: int;
+}
+
+test "custom attributes" {
+    my_flattened_func();
+}

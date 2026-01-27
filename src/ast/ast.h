@@ -157,6 +157,14 @@ typedef enum
 } NodeType;
 
 // ** AST Node Structure **
+typedef struct Attribute
+{
+    char *name;
+    char **args;
+    int arg_count;
+    struct Attribute *next;
+} Attribute;
+
 struct ASTNode
 {
     NodeType type;
@@ -212,6 +220,8 @@ struct ASTNode
             int cuda_global; // @global -> __global__
             int cuda_device; // @device -> __device__
             int cuda_host;   // @host -> __host__
+
+            Attribute *attributes; // Custom attributes
         } func;
 
         struct
@@ -419,11 +429,12 @@ struct ASTNode
             int generic_param_count; // Number of generic parameters
             char *parent;
             int is_union;
-            int is_packed;       // @packed attribute.
-            int align;           // @align(N) attribute, 0 = default.
-            int is_incomplete;   // Forward declaration (prototype)
-            int is_export;       // @export attribute
-            char **used_structs; // Names of structs used/mixed-in
+            int is_packed;         // @packed attribute.
+            int align;             // @align(N) attribute, 0 = default.
+            int is_incomplete;     // Forward declaration (prototype)
+            int is_export;         // @export attribute
+            Attribute *attributes; // Custom attributes
+            char **used_structs;   // Names of structs used/mixed-in
             int used_struct_count;
         } strct;
 

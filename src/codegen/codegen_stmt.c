@@ -684,7 +684,64 @@ void codegen_node_single(ParserContext *ctx, ASTNode *node, FILE *out)
                     }
                     fprintf(out, "section(\"%s\")", node->func.section);
                 }
+
+                Attribute *custom = node->func.attributes;
+                while (custom)
+                {
+                    if (!first)
+                    {
+                        fprintf(out, ", ");
+                    }
+                    fprintf(out, "%s", custom->name);
+                    if (custom->arg_count > 0)
+                    {
+                        fprintf(out, "(");
+                        for (int i = 0; i < custom->arg_count; i++)
+                        {
+                            if (i > 0)
+                            {
+                                fprintf(out, ", ");
+                            }
+                            fprintf(out, "%s", custom->args[i]);
+                        }
+                        fprintf(out, ")");
+                    }
+                    first = 0;
+                    custom = custom->next;
+                }
+
 #undef EMIT_ATTR
+                fprintf(out, ")) ");
+            }
+            else if (node->func.attributes)
+            {
+                // Handle case where specific attributes are missing but custom ones exist
+                fprintf(out, "__attribute__((");
+                int first = 1;
+                Attribute *custom = node->func.attributes;
+                while (custom)
+                {
+                    if (!first)
+                    {
+                        fprintf(out, ", ");
+                    }
+                    fprintf(out, "%s", custom->name);
+                    if (custom->arg_count > 0)
+                    {
+                        fprintf(out, "(");
+                        for (int i = 0; i < custom->arg_count; i++)
+                        {
+                            if (i > 0)
+                            {
+                                fprintf(out, ", ");
+                            }
+                            fprintf(out, "%s", custom->args[i]);
+                        }
+                        fprintf(out, ")");
+                    }
+                    first = 0;
+                    custom = custom->next;
+                }
                 fprintf(out, ")) ");
             }
         }
