@@ -240,6 +240,7 @@ void codegen_expression(ParserContext *ctx, ASTNode *node, FILE *out)
                             strcmp(t1, "const char*") == 0))
             {
                 // Check if comparing to NULL - don't use strcmp for NULL comparisons
+                char *t2 = infer_type(ctx, node->binary.right);
                 int is_null_compare = 0;
                 if (node->binary.right->type == NODE_EXPR_VAR &&
                     strcmp(node->binary.right->var_ref.name, "NULL") == 0)
@@ -252,16 +253,8 @@ void codegen_expression(ParserContext *ctx, ASTNode *node, FILE *out)
                     is_null_compare = 1;
                 }
 
-                if (is_null_compare)
-                {
-                    // Direct pointer comparison for NULL
-                    fprintf(out, "(");
-                    codegen_expression(ctx, node->binary.left, out);
-                    fprintf(out, " %s ", node->binary.op);
-                    codegen_expression(ctx, node->binary.right, out);
-                    fprintf(out, ")");
-                }
-                else
+                if (!is_null_compare && strcmp(t1, "string") == 0 && t2 &&
+                    strcmp(t2, "string") == 0)
                 {
                     fprintf(out, "(strcmp(");
                     codegen_expression(ctx, node->binary.left, out);
@@ -275,6 +268,19 @@ void codegen_expression(ParserContext *ctx, ASTNode *node, FILE *out)
                     {
                         fprintf(out, ") != 0)");
                     }
+                }
+                else
+                {
+                    // Direct pointer comparison
+                    fprintf(out, "(");
+                    codegen_expression(ctx, node->binary.left, out);
+                    fprintf(out, " %s ", node->binary.op);
+                    codegen_expression(ctx, node->binary.right, out);
+                    fprintf(out, ")");
+                }
+                if (t2)
+                {
+                    free(t2);
                 }
             }
             else
