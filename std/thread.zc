@@ -5,6 +5,7 @@ include <unistd.h>
 
 import "./core.zc"
 import "./result.zc"
+import "./mem.zc"
 
 raw {
     typedef void (*ZenThreadFunc)(void*);
@@ -120,11 +121,17 @@ impl Mutex {
         if (self.handle) {
             _z_mutex_destroy(self.handle);
             free(self.handle);
+            self.handle = NULL;
         }
+    }
+}
+
+impl Drop for Mutex {
+    fn drop(self) {
+        self.free();
     }
 }
 
 fn sleep_ms(ms: int) {
     _z_usleep(ms * 1000);
 }
-

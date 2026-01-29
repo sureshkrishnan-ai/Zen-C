@@ -5,6 +5,7 @@ import "./map.zc"
 import "./string.zc"
 import "./result.zc"
 import "./option.zc"
+import "./mem.zc"
 
 @derive(Eq)
 enum JsonType {
@@ -448,5 +449,11 @@ impl JsonValue {
              m.free();
              free(m);
         }
+    }
+}
+
+impl Drop for JsonValue {
+    fn drop(self) {
+        self.free();
     }
 }

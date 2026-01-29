@@ -1,19 +1,8 @@
-//> link: -lm
-//> cflags: -O2
 
-// Declare C math function (since we don't have a math stdlib module yet)
-extern fn sin(x: double) -> double;
+//> shell: echo "Env Worked" > ${PWD}/build_dir_env.txt
+//> linux: shell: echo "Linux Worked" > ${PWD}/build_dir_linux.txt
+//> windows: shell: echo "Windows Worked" > ${PWD}/build_dir_windows.txt
 
-test "test_build_directives" {
-    println "Running Build Directives Test...";
-    let x = 3.14159 / 2.0; // PI/2
-    let s = sin(x);
-    // sin(PI/2) should be 1.0
-    println "sin(PI/2) = {s}";
-    
-    if (s > 0.99 && s < 1.01) {
-        println "Math Link Success!";
-    } else {
-        println "Math Link Failure (Value wrong)";
-    }
+fn main() {
+    return 0;
 }

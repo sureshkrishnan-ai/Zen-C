@@ -172,6 +172,10 @@ int main(int argc, char **argv)
             g_config.use_cuda = 1;
             g_config.use_cpp = 1; // CUDA implies C++ mode.
         }
+        else if (strcmp(arg, "--objc") == 0)
+        {
+            g_config.use_objc = 1;
+        }
         else if (strcmp(arg, "--check") == 0)
         {
             g_config.mode_check = 1;
@@ -303,6 +307,10 @@ int main(int argc, char **argv)
     else if (g_config.use_cpp)
     {
         temp_source_file = "out.cpp";
+    }
+    else if (g_config.use_objc)
+    {
+        temp_source_file = "out.m";
     }
 
     // Codegen to C/C++/CUDA

@@ -1,17 +1,27 @@
-
 import "./core.zc"
 
+include <time.h>
+include <unistd.h>
+include <sys/time.h>
+include <stdlib.h>
+
 raw {
-    #include <time.h>
-    #include <unistd.h>
-    #include <sys/time.h>
-    
     static uint64_t _time_now_impl(void) {
         struct timeval tv;
         gettimeofday(&tv, NULL);
         return (uint64_t)(tv.tv_sec) * 1000 + (uint64_t)(tv.tv_usec) / 1000;
     }
+
+    static long _z_time_time(void) {
+        return (long)time(NULL);
+    }
 }
+
+extern fn srand(seed: U32);
+extern fn rand() -> int;
+extern fn usleep(micros: U32) -> int;
+extern fn _time_now_impl() -> U64;
+extern fn _z_time_time() -> long;
 
 struct Duration {
     millis: U64;
@@ -33,10 +43,8 @@ extern size_t __zen_hash_seed;
 
 impl Time {
     fn randomize_hash() {
-        raw {
-            srand(time(NULL));
-            __zen_hash_seed ^= (size_t)rand();
-        }
+        srand((U32)_z_time_time());
+        __zen_hash_seed ^= (size_t)rand();
     }
 
     fn now() -> U64 {

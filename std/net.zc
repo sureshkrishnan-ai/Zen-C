@@ -8,6 +8,7 @@ include <errno.h>
 import "./core.zc"
 import "./result.zc"
 import "./string.zc"
+import "./mem.zc"
 
 def Z_AF_INET = 2;
 def Z_SOCK_STREAM = 1;
@@ -36,13 +37,9 @@ raw {
         if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) return -2;
         return 0;
     }
-    
+
     static int _z_net_accept(int fd) {
         return accept(fd, NULL, NULL);
-    }
-
-    static ssize_t _z_net_read(int fd, char* buf, size_t n) {
-        return read(fd, (void*)buf, n);
     }
 
     static ssize_t _z_net_write(int fd, char* buf, size_t n) {
@@ -52,11 +49,11 @@ raw {
 
 extern fn socket(domain: int, type: int, proto: int) -> int;
 extern fn close(fd: int) -> int;
+extern fn read(fd: int, buf: void*, count: usize) -> isize;
 
 extern fn _z_net_bind(fd: int, host: char*, port: int) -> int;
 extern fn _z_net_connect(fd: int, host: char*, port: int) -> int;
 extern fn _z_net_accept(fd: int) -> int;
-extern fn _z_net_read(fd: int, buf: char*, n: usize) -> isize;
 extern fn _z_net_write(fd: int, buf: char*, n: usize) -> isize;
 
 
@@ -66,7 +63,7 @@ struct TcpStream {
 
 impl TcpStream {
     fn read(self, buf: char*, len: usize) -> Result<usize> {
-        let n = _z_net_read(self.fd, buf, len);
+        let n = read(self.fd, (void*)buf, len);
         if (n < 0) return Result<usize>::Err("Read failed");
         return Result<usize>::Ok((usize)n);
     }
@@ -93,6 +90,12 @@ impl TcpStream {
         if (res == -2) { close(fd); return Result<TcpStream>::Err("Connection failed"); }
         
         return Result<TcpStream>::Ok(TcpStream { fd: fd });
+    }
+}
+
+impl Drop for TcpStream {
+    fn drop(self) {
+        self.close();
     }
 }
 
@@ -124,5 +127,11 @@ impl TcpListener {
             close(self.fd);
             self.fd = -1;
         }
+    }
+}
+
+impl Drop for TcpListener {
+    fn drop(self) {
+        self.close();
     }
 }

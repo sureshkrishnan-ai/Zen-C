@@ -91,14 +91,8 @@ void emit_preamble(ParserContext *ctx, FILE *out)
             fputs("static inline const char* _z_bool_str(_Bool b) { return b ? \"true\" : "
                   "\"false\"; }\n",
                   out);
-            fputs("#define _z_str(x) _Generic((x), _Bool: \"%s\", char: \"%c\", "
-                  "signed char: \"%c\", unsigned char: \"%u\", short: \"%d\", "
-                  "unsigned short: \"%u\", int: \"%d\", unsigned int: \"%u\", "
-                  "long: \"%ld\", unsigned long: \"%lu\", long long: \"%lld\", "
-                  "unsigned long long: \"%llu\", float: \"%f\", double: \"%f\", "
-                  "char*: \"%s\", void*: \"%p\")\n",
-                  out);
-            fputs("#define _z_arg(x) _Generic((x), _Bool: _z_bool_str(x), default: (x))\n", out);
+            fputs(ZC_C_GENERIC_STR, out);
+            fputs(ZC_C_ARG_GENERIC_STR, out);
         }
 
         fputs("typedef size_t usize;\ntypedef char* string;\n", out);
@@ -108,12 +102,11 @@ void emit_preamble(ParserContext *ctx, FILE *out)
             fputs("typedef struct { pthread_t thread; void *result; } Async;\n", out);
         }
         fputs("typedef struct { void *func; void *ctx; } z_closure_T;\n", out);
-        fputs("#define U0 void\n#define I8 int8_t\n#define U8 uint8_t\n#define I16 "
-              "int16_t\n#define U16 uint16_t\n",
+        fputs("typedef void U0;\ntypedef int8_t I8;\ntypedef uint8_t U8;\ntypedef "
+              "int16_t I16;\ntypedef uint16_t U16;\n",
               out);
-        fputs("#define I32 int32_t\n#define U32 uint32_t\n#define I64 "
-              "int64_t\n#define U64 "
-              "uint64_t\n",
+        fputs("typedef int32_t I32;\ntypedef uint32_t U32;\ntypedef int64_t I64;\ntypedef "
+              "uint64_t U64;\n",
               out);
         fputs("#define F32 float\n#define F64 double\n", out);
 

@@ -1,6 +1,7 @@
 
 import "./core.zc"
 import "./option.zc"
+import "./mem.zc"
 
 raw {
     extern size_t __zen_hash_seed;
@@ -246,5 +247,11 @@ impl Map<V> {
             cap: self.cap,
             idx: 0
         };
+    }
+}
+
+impl Drop for Map<V> {
+    fn drop(self) {
+        self.free();
     }
 }
