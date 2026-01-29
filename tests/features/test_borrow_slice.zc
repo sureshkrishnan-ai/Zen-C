@@ -1,0 +1,31 @@
+// Borrowed reference tests with arrays
+// Tests passing pointers/references to array elements.
+
+fn read_ref(x: &i32) -> i32 {
+    return *x;
+}
+
+fn write_ref(x: &mut i32, v: i32) {
+    *x = v;
+}
+
+test "ref_to_variable" {
+    let x: i32 = 42;
+    let r: &i32 = &x;
+    assert(read_ref(r) == 42, "ref to variable read failed");
+}
+
+test "mut_ref_to_variable" {
+    let x: i32 = 10;
+    let r: &mut i32 = &mut x;
+    write_ref(r, 99);
+    assert(x == 99, "mut ref to variable write failed");
+}
+
+test "ref_chain" {
+    let a: i32 = 5;
+    let b: i32 = 10;
+    let ra: &i32 = &a;
+    let rb: &i32 = &b;
+    assert(*ra + *rb == 15, "ref chain sum failed");
+}

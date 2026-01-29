@@ -753,6 +753,51 @@ Type *parse_type_formal(ParserContext *ctx, Lexer *l)
 
     Type *t = NULL;
 
+    // Reference types: &T, &mut T, &[T], &mut [T]
+    if (lexer_peek(l).type == TOK_OP && *lexer_peek(l).start == '&' && lexer_peek(l).len == 1)
+    {
+        lexer_next(l); // consume '&'
+
+        int ref_mutable = 0;
+        // Check for 'mut' keyword
+        if (lexer_peek(l).type == TOK_IDENT && lexer_peek(l).len == 3 &&
+            strncmp(lexer_peek(l).start, "mut", 3) == 0)
+        {
+            lexer_next(l); // consume 'mut'
+            ref_mutable = 1;
+        }
+
+        // Check for slice: &[T] or &mut [T]
+        if (lexer_peek(l).type == TOK_LBRACKET)
+        {
+            lexer_next(l); // consume '['
+            Type *inner = parse_type_formal(ctx, l);
+            expect(l, TOK_RBRACKET, "Expected ']' in borrowed slice type");
+
+            // Register slice type for codegen
+            char *inner_str = type_to_string(inner);
+            register_slice(ctx, inner_str);
+            free(inner_str);
+
+            t = type_new_ref_slice(inner, ref_mutable);
+        }
+        else
+        {
+            Type *inner = parse_type_formal(ctx, l);
+            t = type_new_ref(inner, ref_mutable);
+        }
+
+        if (is_restrict)
+        {
+            t->is_restrict = 1;
+        }
+        if (is_const)
+        {
+            t->is_const = 1;
+        }
+        return t;
+    }
+
     // Example: fn(int, int) -> int
     if (lexer_peek(l).type == TOK_IDENT && strncmp(lexer_peek(l).start, "fn", 2) == 0 &&
         lexer_peek(l).len == 2)

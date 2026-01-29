@@ -72,6 +72,22 @@ Type *type_new_ptr(Type *inner)
     return t;
 }
 
+Type *type_new_ref(Type *inner, int is_mutable)
+{
+    Type *t = type_new(TYPE_REF);
+    t->inner = inner;
+    t->is_mutable = is_mutable;
+    return t;
+}
+
+Type *type_new_ref_slice(Type *inner, int is_mutable)
+{
+    Type *t = type_new(TYPE_REF_SLICE);
+    t->inner = inner;
+    t->is_mutable = is_mutable;
+    return t;
+}
+
 int is_char_ptr(Type *t)
 {
     // Handle both primitive char* and legacy struct char*.
@@ -168,7 +184,15 @@ int type_eq(Type *a, Type *b)
     {
         return 0 == strcmp(a->name, b->name);
     }
-    if (a->kind == TYPE_POINTER || a->kind == TYPE_ARRAY)
+    if (a->kind == TYPE_POINTER || a->kind == TYPE_ARRAY ||
+        a->kind == TYPE_REF || a->kind == TYPE_REF_SLICE)
+    {
+        return type_eq(a->inner, b->inner);
+    }
+
+    // Allow REF to match POINTER for C interop compatibility
+    if ((a->kind == TYPE_REF && b->kind == TYPE_POINTER) ||
+        (a->kind == TYPE_POINTER && b->kind == TYPE_REF))
     {
         return type_eq(a->inner, b->inner);
     }
@@ -321,6 +345,38 @@ static char *type_to_string_impl(Type *t)
         }
 
         return xstrdup("z_closure_T");
+
+    case TYPE_REF:
+    {
+        char *inner = type_to_string(t->inner);
+        char *res = xmalloc(strlen(inner) + 6);
+        if (t->is_mutable)
+        {
+            sprintf(res, "&mut %s", inner);
+        }
+        else
+        {
+            sprintf(res, "&%s", inner);
+        }
+        free(inner);
+        return res;
+    }
+
+    case TYPE_REF_SLICE:
+    {
+        char *inner = type_to_string(t->inner);
+        char *res = xmalloc(strlen(inner) + 10);
+        if (t->is_mutable)
+        {
+            sprintf(res, "&mut [%s]", inner);
+        }
+        else
+        {
+            sprintf(res, "&[%s]", inner);
+        }
+        free(inner);
+        return res;
+    }
 
     case TYPE_STRUCT:
     case TYPE_GENERIC:
@@ -520,6 +576,44 @@ static char *type_to_c_string_impl(Type *t)
             free(type_to_c_string(t->inner));
         }
         return xstrdup("z_closure_T");
+
+    case TYPE_REF:
+    {
+        char *inner = type_to_c_string(t->inner);
+        if (t->is_mutable)
+        {
+            char *res = xmalloc(strlen(inner) + 2);
+            sprintf(res, "%s*", inner);
+            free(inner);
+            return res;
+        }
+        else
+        {
+            char *res = xmalloc(strlen(inner) + 8);
+            sprintf(res, "const %s*", inner);
+            free(inner);
+            return res;
+        }
+    }
+
+    case TYPE_REF_SLICE:
+    {
+        char *inner = type_to_c_string(t->inner);
+        if (t->is_mutable)
+        {
+            char *res = xmalloc(strlen(inner) + 8);
+            sprintf(res, "Slice_%s", inner);
+            free(inner);
+            return res;
+        }
+        else
+        {
+            char *res = xmalloc(strlen(inner) + 14);
+            sprintf(res, "const Slice_%s", inner);
+            free(inner);
+            return res;
+        }
+    }
 
     case TYPE_GENERIC:
         return xstrdup(t->name);

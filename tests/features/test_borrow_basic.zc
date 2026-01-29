@@ -1,0 +1,44 @@
+// Basic borrow checker tests
+// Tests immutable borrows, mutable borrows, and multiple immutable borrows.
+
+test "immutable_borrow" {
+    let x: i32 = 42;
+    let r: &i32 = &x;
+    assert(*r == 42, "immutable borrow read failed");
+}
+
+test "mutable_borrow" {
+    let x: i32 = 10;
+    let r: &mut i32 = &mut x;
+    *r = 20;
+    assert(x == 20, "mutable borrow write failed");
+}
+
+test "multiple_immutable_borrows" {
+    let x: i32 = 5;
+    let a: &i32 = &x;
+    let b: &i32 = &x;
+    assert(*a == *b, "multiple immutable borrows should be equal");
+    assert(*a == 5, "immutable borrow value check failed");
+}
+
+test "borrow_scope_release" {
+    let x: i32 = 100;
+    {
+        let r: &i32 = &x;
+        assert(*r == 100, "inner scope borrow failed");
+    }
+    // After scope ends, borrow is released - can take mutable borrow
+    let w: &mut i32 = &mut x;
+    *w = 200;
+    assert(x == 200, "mutable borrow after scope release failed");
+}
+
+test "mutable_borrow_modify" {
+    let x: i32 = 0;
+    let r: &mut i32 = &mut x;
+    *r = 10;
+    *r = 20;
+    *r = 30;
+    assert(x == 30, "multiple writes through mutable borrow failed");
+}

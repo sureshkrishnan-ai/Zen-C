@@ -1,0 +1,47 @@
+// Function parameter borrow tests
+// Tests passing references as function arguments.
+
+fn read_val(x: &i32) -> i32 {
+    return *x;
+}
+
+fn write_val(x: &mut i32, v: i32) {
+    *x = v;
+}
+
+fn add_to(x: &mut i32, amount: i32) {
+    *x = *x + amount;
+}
+
+fn swap(a: &mut i32, b: &mut i32) {
+    let tmp: i32 = *a;
+    *a = *b;
+    *b = tmp;
+}
+
+test "borrow_read_param" {
+    let x: i32 = 100;
+    assert(read_val(&x) == 100, "read borrow param failed");
+}
+
+test "borrow_write_param" {
+    let x: i32 = 100;
+    write_val(&mut x, 200);
+    assert(x == 200, "write borrow param failed");
+}
+
+test "borrow_add_to" {
+    let x: i32 = 10;
+    add_to(&mut x, 5);
+    assert(x == 15, "add_to through mutable borrow failed");
+    add_to(&mut x, 10);
+    assert(x == 25, "second add_to failed");
+}
+
+test "borrow_swap" {
+    let a: i32 = 10;
+    let b: i32 = 20;
+    swap(&mut a, &mut b);
+    assert(a == 20, "swap a failed");
+    assert(b == 10, "swap b failed");
+}

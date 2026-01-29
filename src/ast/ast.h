@@ -58,6 +58,8 @@ typedef enum
     TYPE_ARRAY,        ///< Fixed size array [N].
     TYPE_FUNCTION,     ///< Function pointer or reference.
     TYPE_GENERIC,      ///< Generic type parameter (T).
+    TYPE_REF,          ///< Reference type (&T or &mut T).
+    TYPE_REF_SLICE,    ///< Borrowed slice (&[T] or &mut [T]).
     TYPE_UNKNOWN       ///< Unknown/unresolved type.
 } TypeKind;
 
@@ -74,6 +76,7 @@ typedef struct Type
     int is_const;           ///< 1 if const-qualified.
     int is_explicit_struct; ///< 1 if defined with "struct" keyword explicitly.
     int is_raw;             // Raw function pointer (fn*)
+    int is_mutable;         ///< 1 if mutable reference (&mut T).
     union
     {
         int array_size;  ///< Size for fixed-size arrays.
@@ -620,6 +623,8 @@ void ast_free(ASTNode *node);
 
 Type *type_new(TypeKind kind);
 Type *type_new_ptr(Type *inner);
+Type *type_new_ref(Type *inner, int is_mutable);
+Type *type_new_ref_slice(Type *inner, int is_mutable);
 int type_eq(Type *a, Type *b);
 int is_integer_type(Type *t);
 char *type_to_string(Type *t);

@@ -1,0 +1,104 @@
+// Borrow Checker Showcase
+// Zen-C supports reference types:
+//   &T       - immutable (shared) reference  -> const T* in C
+//   &mut T   - mutable (exclusive) reference -> T* in C
+//
+// Rules:
+//   1. Multiple &T borrows allowed simultaneously
+//   2. Only one &mut T borrow at a time
+//   3. &T and &mut T cannot coexist on the same variable
+//   4. Cannot assign through &T
+//   5. Borrows are scoped - released when scope exits
+
+import "stdio.h" as c;
+
+// --- Immutable References ---
+
+fn print_value(x: &i32) {
+    c::printf("Value: %d\n", *x);
+}
+
+fn compute_sum(a: &i32, b: &i32) -> i32 {
+    return *a + *b;
+}
+
+// --- Mutable References ---
+
+fn increment(x: &mut i32) {
+    *x = *x + 1;
+}
+
+fn reset(x: &mut i32) {
+    *x = 0;
+}
+
+fn swap_values(a: &mut i32, b: &mut i32) {
+    let tmp: i32 = *a;
+    *a = *b;
+    *b = tmp;
+}
+
+// --- Struct References ---
+
+struct Point {
+    x: i32;
+    y: i32;
+}
+
+fn print_point(p: Point*) {
+    c::printf("Point(%d, %d)\n", p.x, p.y);
+}
+
+fn translate(p: Point*, dx: i32, dy: i32) {
+    p.x = p.x + dx;
+    p.y = p.y + dy;
+}
+
+// --- Main ---
+
+fn main() -> i32 {
+    // Immutable references: &T -> const T*
+    let x: i32 = 42;
+    print_value(&x);
+
+    let a: i32 = 10;
+    let b: i32 = 20;
+    let sum: i32 = compute_sum(&a, &b);
+    c::printf("Sum: %d\n", sum);
+
+    // Multiple immutable borrows (allowed)
+    let r1: &i32 = &x;
+    let r2: &i32 = &x;
+    c::printf("r1=%d, r2=%d\n", *r1, *r2);
+
+    // Mutable references: &mut T -> T*
+    let counter: i32 = 0;
+    increment(&mut counter);
+    increment(&mut counter);
+    increment(&mut counter);
+    c::printf("Counter: %d\n", counter);
+
+    reset(&mut counter);
+    c::printf("After reset: %d\n", counter);
+
+    // Swap using mutable references
+    let m: i32 = 100;
+    let n: i32 = 200;
+    swap_values(&mut m, &mut n);
+    c::printf("After swap: m=%d, n=%d\n", m, n);
+
+    // Struct with pointer (existing Zen-C pattern)
+    let p = Point { x: 3, y: 4 };
+    print_point(&p);
+    translate(&p, 10, 20);
+    print_point(&p);
+
+    // Scoped borrows
+    {
+        let inner_ref: &i32 = &x;
+        c::printf("Inner scope: %d\n", *inner_ref);
+    }
+    // Borrow released - x is free again
+
+    return 0;
+}

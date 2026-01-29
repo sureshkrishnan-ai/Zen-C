@@ -1,3 +1,4 @@
+#include "analysis/borrow_check.h"
 #include "codegen/codegen.h"
 #include "parser/parser.h"
 #include "plugins/plugin_manager.h"
@@ -284,6 +285,12 @@ int main(int argc, char **argv)
     if (!validate_types(&ctx))
     {
         // Type validation failed
+        return 1;
+    }
+
+    // Borrow checking pass
+    if (check_borrows(&ctx, root))
+    {
         return 1;
     }
 

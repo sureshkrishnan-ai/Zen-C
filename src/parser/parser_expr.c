@@ -3742,9 +3742,19 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
          is_token(t, "~") || is_token(t, "&&") || is_token(t, "++") || is_token(t, "--")))
     {
         lexer_next(l); // consume op
+
+        // Handle &mut as mutable borrow expression
+        int is_mut_borrow = 0;
+        if (is_token(t, "&") && lexer_peek(l).type == TOK_IDENT &&
+            lexer_peek(l).len == 3 && strncmp(lexer_peek(l).start, "mut", 3) == 0)
+        {
+            lexer_next(l); // consume 'mut'
+            is_mut_borrow = 1;
+        }
+
         ASTNode *operand = parse_expr_prec(ctx, l, PREC_UNARY);
 
-        if (is_token(t, "&") && operand->type == NODE_EXPR_VAR)
+        if (is_token(t, "&") && !is_mut_borrow && operand->type == NODE_EXPR_VAR)
         {
             ZenSymbol *s = find_symbol_entry(ctx, operand->var_ref.name);
             if (s && s->is_def)
@@ -3843,11 +3853,19 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
         {
             if (is_token(t, "&"))
             {
-                lhs->type_info = type_new_ptr(operand->type_info);
+                if (is_mut_borrow)
+                {
+                    lhs->type_info = type_new_ref(operand->type_info, 1);
+                }
+                else
+                {
+                    lhs->type_info = type_new_ptr(operand->type_info);
+                }
             }
             else if (is_token(t, "*"))
             {
-                if (operand->type_info->kind == TYPE_POINTER)
+                if (operand->type_info->kind == TYPE_POINTER ||
+                    operand->type_info->kind == TYPE_REF)
                 {
                     lhs->type_info = operand->type_info->inner;
                 }

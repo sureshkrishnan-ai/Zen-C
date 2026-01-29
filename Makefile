@@ -42,6 +42,7 @@ SRCS = src/main.c \
        src/utils/utils.c \
        src/lexer/token.c \
        src/analysis/typecheck.c \
+       src/analysis/borrow_check.c \
        src/lsp/json_rpc.c \
        src/lsp/lsp_main.c \
        src/lsp/lsp_analysis.c \
