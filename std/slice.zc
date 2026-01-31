@@ -28,8 +28,13 @@ impl SliceIter<T> {
 }
 
 impl Slice<T> {
-    fn from_array(arr: T*, len: usize) -> Slice<T> {
-        return Slice<T> { data: arr, len: len };
+    fn from_array(ptr: T*, len: usize) -> Slice<T> {
+        return Slice<T> { data: ptr, len: len };
+    }
+
+    // Alias for backwards compatibility with std/mem.zc
+    fn new(data: T*, len: usize) -> Slice<T> {
+        return Slice<T> { data: data, len: len };
     }
 
     fn iterator(self) -> SliceIter<T> {

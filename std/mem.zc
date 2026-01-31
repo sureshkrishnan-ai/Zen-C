@@ -49,28 +49,7 @@ impl Box<T> {
     }
 }
 
-struct Slice<T> {
-    data: T*;
-    len: usize;
-}
-
-impl Slice<T> {
-    fn new(data: T*, len: usize) -> Self {
-        return Self { data: data, len: len };
-    }
-    
-    fn get(self, i: usize) -> T {
-        return self.data[i];
-    }
-    
-    fn set(self, i: usize, val: T) {
-        self.data[i] = val;
-    }
-    
-    fn is_empty(self) -> bool {
-        return self.len == 0;
-    }
-}
+// Note: Slice<T> is defined in std/slice.zc with iteration support
 
 fn mem_zero<T>(ptr: T*, count: usize) {
     memset(ptr, 0, sizeof(T) * count);

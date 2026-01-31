@@ -10,12 +10,12 @@ import "std/slice.zc"
 fn main() {
     let arr: int[5] = [1, 2, 3, 4, 5];
     
-    // Direct iteration (Recommended)
+    // Direct iteration (auto-imports std/slice.zc)
     for val in arr {
         println "{val}";
     }
     
-    // Manual slice creation (for partial views or specific needs)
+    // Manual slice creation
     let slice = Slice<int>::from_array((int*)(&arr), 5);
     for val in slice {
         println "{val}";
@@ -39,6 +39,7 @@ struct Slice<T> {
 | Method | Signature | Description |
 | :--- | :--- | :--- |
 | **from_array** | `Slice<T>::from_array(arr: T*, len: usize) -> Slice<T>` | Creates a slice view over an array. |
+| **new** | `Slice<T>::new(data: T*, len: usize) -> Slice<T>` | Alias for `from_array` (backwards compat). |
 
 ### Iteration
 
@@ -62,10 +63,10 @@ struct Slice<T> {
 ### Iterating over fixed-size arrays
 
 ```zc
+// std/slice.zc is auto-imported when using for-in on arrays
 let numbers: int[3] = [10, 20, 30];
-let slice = Slice<int>::from_array((int*)(&numbers), 3);
 
-for n in slice {
+for n in numbers {
     println "Number: {n}";
 }
 ```
@@ -73,6 +74,8 @@ for n in slice {
 ### Safe indexed access
 
 ```zc
+import "std/slice.zc"
+
 let arr: int[3] = [1, 2, 3];
 let slice = Slice<int>::from_array((int*)(&arr), 3);
 
@@ -84,7 +87,7 @@ if (!opt.is_none()) {
 
 ## Notes
 
-- `Slice<T>` does not own its data - it's just a view
+- `Slice<T>` does not own its data — it's just a view
 - No memory management needed (no `free()` method)
-- Must specify the generic type explicitly: `Slice<int>`, `Slice<String>`, etc.
+- **Auto-import**: `std/slice.zc` is automatically imported when using `for val in arr` on a fixed-size array
 - The array pointer cast `(T*)(&arr)` is required for fixed-size arrays

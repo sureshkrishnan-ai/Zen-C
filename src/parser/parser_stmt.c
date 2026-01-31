@@ -14,6 +14,118 @@
 
 char *curr_func_ret = NULL;
 char *run_comptime_block(ParserContext *ctx, Lexer *l);
+extern char *g_current_filename;
+
+/**
+ * @brief Auto-imports std/slice.zc if not already imported.
+ *
+ * This is called when array iteration is detected in for-in loops,
+ * to ensure the Slice<T>, SliceIter<T>, and Option<T> templates are available.
+ */
+static void auto_import_std_slice(ParserContext *ctx)
+{
+    // Check if already imported via templates
+    GenericTemplate *t = ctx->templates;
+    while (t)
+    {
+        if (strcmp(t->name, "Slice") == 0)
+        {
+            return; // Already have the Slice template
+        }
+        t = t->next;
+    }
+
+    // Try to find and import std/slice.zc
+    static const char *std_paths[] = {"std/slice.zc", "./std/slice.zc", NULL};
+    static const char *system_paths[] = {"/usr/local/share/zenc", "/usr/share/zenc", NULL};
+
+    char resolved_path[1024];
+    int found = 0;
+
+    // First, try relative to current file
+    if (g_current_filename)
+    {
+        char *current_dir = xstrdup(g_current_filename);
+        char *last_slash = strrchr(current_dir, '/');
+        if (last_slash)
+        {
+            *last_slash = 0;
+            snprintf(resolved_path, sizeof(resolved_path), "%s/std/slice.zc", current_dir);
+            if (access(resolved_path, R_OK) == 0)
+            {
+                found = 1;
+            }
+        }
+        free(current_dir);
+    }
+
+    // Try relative paths
+    if (!found)
+    {
+        for (int i = 0; std_paths[i] && !found; i++)
+        {
+            if (access(std_paths[i], R_OK) == 0)
+            {
+                strncpy(resolved_path, std_paths[i], sizeof(resolved_path) - 1);
+                resolved_path[sizeof(resolved_path) - 1] = '\0';
+                found = 1;
+            }
+        }
+    }
+
+    // Try system paths
+    if (!found)
+    {
+        for (int i = 0; system_paths[i] && !found; i++)
+        {
+            snprintf(resolved_path, sizeof(resolved_path), "%s/std/slice.zc", system_paths[i]);
+            if (access(resolved_path, R_OK) == 0)
+            {
+                found = 1;
+            }
+        }
+    }
+
+    if (!found)
+    {
+        return; // Could not find std/slice.zc, instantiate_generic will error
+    }
+
+    // Canonicalize path
+    char *real_fn = realpath(resolved_path, NULL);
+    if (real_fn)
+    {
+        strncpy(resolved_path, real_fn, sizeof(resolved_path) - 1);
+        resolved_path[sizeof(resolved_path) - 1] = '\0';
+        free(real_fn);
+    }
+
+    // Check if already imported
+    if (is_file_imported(ctx, resolved_path))
+    {
+        return;
+    }
+    mark_file_imported(ctx, resolved_path);
+
+    // Load and parse the file
+    char *src = load_file(resolved_path);
+    if (!src)
+    {
+        return; // Could not load file
+    }
+
+    Lexer i;
+    lexer_init(&i, src);
+
+    // Save and restore filename context
+    char *saved_fn = g_current_filename;
+    g_current_filename = resolved_path;
+
+    // Parse the slice module contents
+    parse_program_nodes(ctx, &i);
+
+    g_current_filename = saved_fn;
+}
 
 static void check_assignment_condition(ASTNode *cond)
 {
@@ -1193,6 +1305,8 @@ ASTNode *parse_for(ParserContext *ctx, Lexer *l)
 
                     // Manually trigger generic instantiation for Slice<T>
                     // This ensures that Slice_int, Slice_float, etc. structures are generated
+                    // First, ensure std/slice.zc is imported (auto-import if needed)
+                    auto_import_std_slice(ctx);
                     Token dummy_tok = {0};
                     instantiate_generic(ctx, "Slice", elem_type_str, elem_type_str, dummy_tok);
 

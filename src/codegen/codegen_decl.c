@@ -50,6 +50,7 @@ void emit_preamble(ParserContext *ctx, FILE *out)
     else
     {
         // Standard hosted preamble.
+        fputs("#define _GNU_SOURCE\n", out);
         fputs("#include <stdio.h>\n#include <stdlib.h>\n#include "
               "<stddef.h>\n#include <string.h>\n",
               out);

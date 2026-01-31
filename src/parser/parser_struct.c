@@ -12,6 +12,114 @@
 #include "zprep_plugin.h"
 #include "../codegen/codegen.h"
 
+extern char *g_current_filename;
+
+/**
+ * @brief Auto-imports std/mem.zc if not already imported.
+ *
+ * This is called when the Drop trait is used (impl Drop for X).
+ */
+static void auto_import_std_mem(ParserContext *ctx)
+{
+    // Check if Drop trait is already registered (means mem.zc was imported)
+    if (check_impl(ctx, "Drop", "__trait_marker__"))
+    {
+        // Check_impl returns 0 if not found, but we need a different check
+        // Let's check if we can find any indicator that mem.zc was loaded
+    }
+
+    // Try to find and import std/mem.zc
+    static const char *std_paths[] = {"std/mem.zc", "./std/mem.zc", NULL};
+    static const char *system_paths[] = {"/usr/local/share/zenc", "/usr/share/zenc", NULL};
+
+    char resolved_path[1024];
+    int found = 0;
+
+    // First, try relative to current file
+    if (g_current_filename)
+    {
+        char *current_dir = xstrdup(g_current_filename);
+        char *last_slash = strrchr(current_dir, '/');
+        if (last_slash)
+        {
+            *last_slash = 0;
+            snprintf(resolved_path, sizeof(resolved_path), "%s/std/mem.zc", current_dir);
+            if (access(resolved_path, R_OK) == 0)
+            {
+                found = 1;
+            }
+        }
+        free(current_dir);
+    }
+
+    // Try relative paths
+    if (!found)
+    {
+        for (int i = 0; std_paths[i] && !found; i++)
+        {
+            if (access(std_paths[i], R_OK) == 0)
+            {
+                strncpy(resolved_path, std_paths[i], sizeof(resolved_path) - 1);
+                resolved_path[sizeof(resolved_path) - 1] = '\0';
+                found = 1;
+            }
+        }
+    }
+
+    // Try system paths
+    if (!found)
+    {
+        for (int i = 0; system_paths[i] && !found; i++)
+        {
+            snprintf(resolved_path, sizeof(resolved_path), "%s/std/mem.zc", system_paths[i]);
+            if (access(resolved_path, R_OK) == 0)
+            {
+                found = 1;
+            }
+        }
+    }
+
+    if (!found)
+    {
+        return; // Could not find std/mem.zc
+    }
+
+    // Canonicalize path
+    char *real_fn = realpath(resolved_path, NULL);
+    if (real_fn)
+    {
+        strncpy(resolved_path, real_fn, sizeof(resolved_path) - 1);
+        resolved_path[sizeof(resolved_path) - 1] = '\0';
+        free(real_fn);
+    }
+
+    // Check if already imported
+    if (is_file_imported(ctx, resolved_path))
+    {
+        return;
+    }
+    mark_file_imported(ctx, resolved_path);
+
+    // Load and parse the file
+    char *src = load_file(resolved_path);
+    if (!src)
+    {
+        return; // Could not load file
+    }
+
+    Lexer i;
+    lexer_init(&i, src);
+
+    // Save and restore filename context
+    char *saved_fn = g_current_filename;
+    g_current_filename = resolved_path;
+
+    // Parse the mem module contents
+    parse_program_nodes(ctx, &i);
+
+    g_current_filename = saved_fn;
+}
+
 // Trait Parsing
 ASTNode *parse_trait(ParserContext *ctx, Lexer *l)
 {
@@ -149,6 +257,7 @@ ASTNode *parse_trait(ParserContext *ctx, Lexer *l)
     }
 
     register_trait(name);
+    add_to_global_list(ctx, n_node); // Track for codegen (VTable emission)
     return n_node;
 }
 
@@ -204,6 +313,12 @@ ASTNode *parse_impl(ParserContext *ctx, Lexer *l)
                 zpanic_at(lexer_peek(l), "Expected > in impl struct generic");
             }
             register_generic(ctx, target_gen_param);
+        }
+
+        // Auto-import std/mem.zc if implementing Drop, Copy, or Clone traits
+        if (strcmp(name1, "Drop") == 0 || strcmp(name1, "Copy") == 0 || strcmp(name1, "Clone") == 0)
+        {
+            auto_import_std_mem(ctx);
         }
 
         register_impl(ctx, name1, name2);

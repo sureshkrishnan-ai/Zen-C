@@ -5644,7 +5644,17 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
                 char *t1 = type_to_string(lhs->type_info);
                 char *t2 = type_to_string(rhs->type_info);
                 // Skip type check if either operand is void* (escape hatch type)
+                // or if either operand is a generic type parameter (T, K, V, etc.)
                 int skip_check = (strcmp(t1, "void*") == 0 || strcmp(t2, "void*") == 0);
+                if (lhs->type_info->kind == TYPE_GENERIC || rhs->type_info->kind == TYPE_GENERIC)
+                {
+                    skip_check = 1;
+                }
+                // Also check if type name is a single uppercase letter (common generic param)
+                if ((strlen(t1) == 1 && isupper(t1[0])) || (strlen(t2) == 1 && isupper(t2[0])))
+                {
+                    skip_check = 1;
+                }
 
                 // Allow comparing pointers/strings with integer literal 0 (NULL)
                 if (!skip_check)
