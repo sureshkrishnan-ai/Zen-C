@@ -101,6 +101,8 @@ fn cuda_ok() -> bool {
 }
 
 
+// Minimal raw block: required for cudaDeviceProp struct field access
+// The cudaDeviceProp struct cannot be declared in Zen-C without type conflicts
 raw {
     void _z_cuda_get_props(int dev, char* name, size_t* total_mem, int* sm_count, int* major, int* minor, int* max_threads, int* warp_size) {
         struct cudaDeviceProp prop;

@@ -1,3 +1,43 @@
+#include "../codegen/codegen.h"
+
+int check_opaque_alias_compat(ParserContext *ctx, Type *a, Type *b)
+{
+    if (!a || !b)
+    {
+        return 0;
+    }
+
+    int a_is_opaque = (a->kind == TYPE_ALIAS && a->alias.is_opaque_alias);
+    int b_is_opaque = (b->kind == TYPE_ALIAS && b->alias.is_opaque_alias);
+
+    if (!a_is_opaque && !b_is_opaque)
+    {
+        return 1;
+    }
+
+    if (a_is_opaque)
+    {
+        if (a->alias.alias_defined_in_file && g_current_filename &&
+            strcmp(a->alias.alias_defined_in_file, g_current_filename) == 0)
+        {
+            return check_opaque_alias_compat(ctx, a->inner, b);
+        }
+        return 0;
+    }
+
+    if (b_is_opaque)
+    {
+        if (b->alias.alias_defined_in_file && g_current_filename &&
+            strcmp(b->alias.alias_defined_in_file, g_current_filename) == 0)
+        {
+            return check_opaque_alias_compat(ctx, a, b->inner);
+        }
+        return 0;
+    }
+
+    return 0;
+}
+
 #include "../zen/zen_facts.h"
 #include "parser.h"
 #include <ctype.h>
@@ -108,6 +148,8 @@ int is_type_copy(ParserContext *ctx, Type *t)
     case TYPE_POINTER: // Pointers are Copy
     case TYPE_FUNCTION:
     case TYPE_ENUM: // Enums are integers
+    case TYPE_BITINT:
+    case TYPE_UBITINT:
         return 1;
 
     case TYPE_STRUCT:
@@ -116,6 +158,14 @@ int is_type_copy(ParserContext *ctx, Type *t)
         {
             return 1;
         }
+
+        // If the struct is NOT defined (opaque/C type) and does NOT implement Drop,
+        // treat it as Copy (C behavior).
+        if (!find_struct_def(ctx, t->name) && !check_impl(ctx, "Drop", t->name))
+        {
+            return 1;
+        }
+
         return 0;
 
     case TYPE_ARRAY:
@@ -123,6 +173,13 @@ int is_type_copy(ParserContext *ctx, Type *t)
         // For Zen-C safety, let's treat them as Copy if they are treated as pointers,
         // but if it's a value assignment, C doesn't support it anyway unless wrapped in struct.
         return 0;
+
+    case TYPE_ALIAS:
+        if (t->alias.is_opaque_alias)
+        {
+            return 1;
+        }
+        return is_type_copy(ctx, t->inner);
 
     default:
         return 1;
@@ -935,6 +992,17 @@ static ASTNode *create_fstring_block(ParserContext *ctx, const char *content)
             free(txt);
         }
 
+        // Handle escape {{
+        if (brace[1] == '{')
+        {
+            ASTNode *cat = ast_create(NODE_RAW_STMT);
+            cat->raw_stmt.content = xstrdup("strcat(_b, \"{\");");
+            tail->next = cat;
+            tail = cat;
+            cur = brace + 2;
+            continue;
+        }
+
         char *end_brace = strchr(brace, '}');
         if (!end_brace)
         {
@@ -1072,6 +1140,7 @@ static ASTNode *create_fstring_block(ParserContext *ctx, const char *content)
 static ASTNode *parse_int_literal(Token t)
 {
     ASTNode *node = ast_create(NODE_EXPR_LITERAL);
+    node->token = t;
     node->literal.type_kind = LITERAL_INT;
     node->type_info = type_new(TYPE_INT);
     char *s = token_strdup(t);
@@ -1093,6 +1162,7 @@ static ASTNode *parse_int_literal(Token t)
 static ASTNode *parse_float_literal(Token t)
 {
     ASTNode *node = ast_create(NODE_EXPR_LITERAL);
+    node->token = t;
     node->literal.type_kind = LITERAL_FLOAT;
     node->literal.float_val = atof(t.start);
     node->type_info = type_new(TYPE_F64);
@@ -1100,9 +1170,32 @@ static ASTNode *parse_float_literal(Token t)
 }
 
 // Parse string literal
-static ASTNode *parse_string_literal(Token t)
+static ASTNode *parse_string_literal(ParserContext *ctx, Token t)
 {
+    // Check for implicit interpolation
+    int has_interpolation = 0;
+    for (int i = 1; i < t.len - 1; i++)
+    {
+        if (t.start[i] == '{')
+        {
+            has_interpolation = 1;
+            break;
+        }
+    }
+
+    if (has_interpolation)
+    {
+
+        char *inner = xmalloc(t.len);
+        strncpy(inner, t.start + 1, t.len - 2);
+        inner[t.len - 2] = 0;
+        ASTNode *node = create_fstring_block(ctx, inner);
+        free(inner);
+        return node;
+    }
+
     ASTNode *node = ast_create(NODE_EXPR_LITERAL);
+    node->token = t;
     node->literal.type_kind = LITERAL_STRING;
     node->literal.string_val = xmalloc(t.len);
     strncpy(node->literal.string_val, t.start + 1, t.len - 2);
@@ -1126,6 +1219,7 @@ static ASTNode *parse_fstring_literal(ParserContext *ctx, Token t)
 static ASTNode *parse_char_literal(Token t)
 {
     ASTNode *node = ast_create(NODE_EXPR_LITERAL);
+    node->token = t;
     node->literal.type_kind = LITERAL_CHAR;
     node->literal.string_val = token_strdup(t);
     node->type_info = type_new(TYPE_I8);
@@ -1276,7 +1370,7 @@ ASTNode *parse_primary(ParserContext *ctx, Lexer *l)
     }
     else if (t.type == TOK_STRING)
     {
-        node = parse_string_literal(t);
+        node = parse_string_literal(ctx, t);
     }
     else if (t.type == TOK_FSTRING)
     {
@@ -2017,6 +2111,20 @@ ASTNode *parse_primary(ParserContext *ctx, Lexer *l)
                     char *prefixed = xmalloc(strlen(ctx->current_module_prefix) + strlen(acc) + 2);
                     sprintf(prefixed, "%s_%s", ctx->current_module_prefix, acc);
                     struct_name = prefixed;
+                }
+
+                // Opaque Struct Check
+                ASTNode *def = find_struct_def(ctx, struct_name);
+                if (def && def->type == NODE_STRUCT && def->strct.is_opaque)
+                {
+                    if (!def->strct.defined_in_file ||
+                        (g_current_filename &&
+                         strcmp(def->strct.defined_in_file, g_current_filename) != 0))
+                    {
+                        zpanic_at(lexer_peek(l),
+                                  "Cannot initialize opaque struct '%s' outside its module",
+                                  struct_name);
+                    }
                 }
                 lexer_next(l);
                 node = ast_create(NODE_EXPR_STRUCT_INIT);
@@ -3592,7 +3700,7 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
                         }
                         else if (t->kind == TYPE_STRING)
                         {
-                            strcat(fmt, "%s");
+                            strcat(fmt, "%ms");
                         }
                         else if (t->kind == TYPE_CHAR || t->kind == TYPE_I8 || t->kind == TYPE_U8 ||
                                  t->kind == TYPE_BYTE)
@@ -4012,6 +4120,30 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
             node->member.field = token_strdup(field);
             node->member.is_pointer_access = 1;
 
+            // Opaque Check
+            int is_ptr_dummy = 0;
+            char *alloc_name = NULL;
+            char *sname =
+                resolve_struct_name_from_type(ctx, lhs->type_info, &is_ptr_dummy, &alloc_name);
+            if (sname)
+            {
+                ASTNode *def = find_struct_def(ctx, sname);
+                if (def && def->type == NODE_STRUCT && def->strct.is_opaque)
+                {
+                    if (!def->strct.defined_in_file ||
+                        (g_current_filename &&
+                         strcmp(def->strct.defined_in_file, g_current_filename) != 0))
+                    {
+                        zpanic_at(field, "Cannot access private field '%s' of opaque struct '%s'",
+                                  node->member.field, sname);
+                    }
+                }
+                if (alloc_name)
+                {
+                    free(alloc_name);
+                }
+            }
+
             node->type_info = get_field_type(ctx, lhs->type_info, node->member.field);
             if (node->type_info)
             {
@@ -4040,6 +4172,30 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
             node->member.target = lhs;
             node->member.field = token_strdup(field);
             node->member.is_pointer_access = 2;
+
+            // Opaque Check
+            int is_ptr_dummy = 0;
+            char *alloc_name = NULL;
+            char *sname =
+                resolve_struct_name_from_type(ctx, lhs->type_info, &is_ptr_dummy, &alloc_name);
+            if (sname)
+            {
+                ASTNode *def = find_struct_def(ctx, sname);
+                if (def && def->type == NODE_STRUCT && def->strct.is_opaque)
+                {
+                    if (!def->strct.defined_in_file ||
+                        (g_current_filename &&
+                         strcmp(def->strct.defined_in_file, g_current_filename) != 0))
+                    {
+                        zpanic_at(field, "Cannot access private field '%s' of opaque struct '%s'",
+                                  node->member.field, sname);
+                    }
+                }
+                if (alloc_name)
+                {
+                    free(alloc_name);
+                }
+            }
 
             node->type_info = get_field_type(ctx, lhs->type_info, node->member.field);
             if (node->type_info)
@@ -4619,6 +4775,30 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
             node->member.target = lhs;
             node->member.field = token_strdup(field);
             node->member.is_pointer_access = 0;
+
+            // Opaque Check
+            int is_ptr_dummy = 0;
+            char *alloc_name = NULL;
+            char *sname =
+                resolve_struct_name_from_type(ctx, lhs->type_info, &is_ptr_dummy, &alloc_name);
+            if (sname)
+            {
+                ASTNode *def = find_struct_def(ctx, sname);
+                if (def && def->type == NODE_STRUCT && def->strct.is_opaque)
+                {
+                    if (!def->strct.defined_in_file ||
+                        (g_current_filename &&
+                         strcmp(def->strct.defined_in_file, g_current_filename) != 0))
+                    {
+                        zpanic_at(field, "Cannot access private field '%s' of opaque struct '%s'",
+                                  node->member.field, sname);
+                    }
+                }
+                if (alloc_name)
+                {
+                    free(alloc_name);
+                }
+            }
 
             node->member.field = token_strdup(field);
             node->member.is_pointer_access = 0;
@@ -5241,6 +5421,7 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
                 // This gives a warning as "unused" but it's needed for the rewrite.
                 char *r_name =
                     resolve_struct_name_from_type(ctx, rhs->type_info, &is_rhs_ptr, &r_alloc);
+                (void)r_name;
                 if (r_alloc)
                 {
                     free(r_alloc);
@@ -5463,7 +5644,17 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
                 char *t1 = type_to_string(lhs->type_info);
                 char *t2 = type_to_string(rhs->type_info);
                 // Skip type check if either operand is void* (escape hatch type)
+                // or if either operand is a generic type parameter (T, K, V, etc.)
                 int skip_check = (strcmp(t1, "void*") == 0 || strcmp(t2, "void*") == 0);
+                if (lhs->type_info->kind == TYPE_GENERIC || rhs->type_info->kind == TYPE_GENERIC)
+                {
+                    skip_check = 1;
+                }
+                // Also check if type name is a single uppercase letter (common generic param)
+                if ((strlen(t1) == 1 && isupper(t1[0])) || (strlen(t2) == 1 && isupper(t2[0])))
+                {
+                    skip_check = 1;
+                }
 
                 // Allow comparing pointers/strings with integer literal 0 (NULL)
                 if (!skip_check)
@@ -5507,7 +5698,8 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
             }
             else
             {
-                if (type_eq(lhs->type_info, rhs->type_info))
+                if (type_eq(lhs->type_info, rhs->type_info) ||
+                    check_opaque_alias_compat(ctx, lhs->type_info, rhs->type_info))
                 {
                     bin->type_info = lhs->type_info;
                 }

@@ -750,7 +750,7 @@ void codegen_node_single(ParserContext *ctx, ASTNode *node, FILE *out)
         {
             fprintf(out, "inline ");
         }
-        emit_func_signature(out, node, NULL);
+        emit_func_signature(ctx, out, node, NULL);
         fprintf(out, "\n");
         fprintf(out, "{\n");
         char *prev_ret = g_current_func_ret_type;
@@ -884,8 +884,7 @@ void codegen_node_single(ParserContext *ctx, ASTNode *node, FILE *out)
             }
             else
             {
-                fprintf(out, "    __auto_type %s = _tmp_%d.%s;\n", node->destruct.names[0], id,
-                        check);
+                fprintf(out, "    ZC_AUTO %s = _tmp_%d.%s;\n", node->destruct.names[0], id, check);
             }
         }
         else
@@ -903,8 +902,8 @@ void codegen_node_single(ParserContext *ctx, ASTNode *node, FILE *out)
                     }
                     else
                     {
-                        fprintf(out, "    __auto_type %s = _tmp_%d.%s;\n", node->destruct.names[i],
-                                id, field);
+                        fprintf(out, "    ZC_AUTO %s = _tmp_%d.%s;\n", node->destruct.names[i], id,
+                                field);
                     }
                 }
                 else
@@ -916,8 +915,8 @@ void codegen_node_single(ParserContext *ctx, ASTNode *node, FILE *out)
                     }
                     else
                     {
-                        fprintf(out, "    __auto_type %s = _tmp_%d.v%d;\n", node->destruct.names[i],
-                                id, i);
+                        fprintf(out, "    ZC_AUTO %s = _tmp_%d.v%d;\n", node->destruct.names[i], id,
+                                i);
                     }
                 }
             }
@@ -1528,7 +1527,7 @@ void codegen_node_single(ParserContext *ctx, ASTNode *node, FILE *out)
                     }
                     else
                     {
-                        fprintf(out, "__auto_type");
+                        fprintf(out, "ZC_AUTO");
                     }
                     fprintf(out, " _z_ret_mv = ");
                     codegen_expression(ctx, node->ret.value, out);

@@ -2,37 +2,51 @@
 import "./core.zc"
 import "./string.zc"
 
-raw {
-    int _z_vprintf(char* fmt, va_list ap) {
-        return vprintf((const char*)fmt, ap);
-    }
-    
-    int _z_vsnprintf(char* str, size_t size, char* fmt, va_list ap) {
-        return vsnprintf(str, size, (const char*)fmt, ap);
-    }
+include <stdio.h>
+include <stdarg.h>
 
-    void* _z_get_stdin() { return stdin; }
-    int _z_get_eof() { return EOF; }
+// These work directly with const char* in extern declarations
+extern fn vprintf(fmt: const char*, ap: va_list) -> int;
+
+// vsnprintf is problematic on macOS because it's a macro that expands to a builtin with a different signature
+// so we wrap it in a C function to avoid the conflict
+extern fn _z_vsnprintf(str: char*, size: usize, fmt: const char*, ap: va_list) -> int;
+
+// EOF is typically -1, but we define it for portability
+def Z_EOF = -1;
+
+// Minimal raw block: only for truly opaque FILE* types that can't be
+// represented in Zen-C extern declarations without type conflicts.
+// These wrappers use void* to avoid FILE* declaration conflicts.
+raw {
+    void* _z_get_stdin(void) { return stdin; }
     int _z_fgetc(void* stream) { return fgetc((FILE*)stream); }
+    int _z_vsnprintf(char* str, size_t size, const char* fmt, va_list ap) {
+        return vsnprintf(str, size, fmt, ap);
+    }
 }
 
-extern fn _z_vprintf(fmt: char*, ap: va_list) -> int;
-extern fn _z_vsnprintf(str: char*, size: usize, fmt: char*, ap: va_list) -> int;
+extern fn _z_get_stdin() -> void*;
+extern fn _z_fgetc(stream: void*) -> int;
 
 fn format(fmt: char*, ...) -> char* {
     static let buffer: char[1024];
     let ap: va_list;
     va_start(ap, fmt);
+
     _z_vsnprintf(buffer, 1024, fmt, ap);
     va_end(ap);
+
     return (char*)buffer;
 }
 
 fn format_into(buffer: char*, size: usize, fmt: char*, ...) -> int {
     let ap: va_list;
     va_start(ap, fmt);
+
     let ret = _z_vsnprintf(buffer, size, fmt, ap);
     va_end(ap);
+
     return ret;
 }
 
@@ -42,15 +56,17 @@ fn format_new(fmt: char*, ...) -> char* {
     
     let ap: va_list;
     va_start(ap, fmt);
+
     _z_vsnprintf(buffer, 1024, fmt, ap);
     va_end(ap);
+
     return buffer;
 }
 
 fn print(fmt: char*, ...) -> int {
     let ap: va_list;
     va_start(ap, fmt);
-    let ret = _z_vprintf(fmt, ap);
+    let ret = vprintf(fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -58,7 +74,7 @@ fn print(fmt: char*, ...) -> int {
 fn println(fmt: char*, ...) -> int {
     let ap: va_list;
     va_start(ap, fmt);
-    let ret = _z_vprintf(fmt, ap);
+    let ret = vprintf(fmt, ap);
     va_end(ap);
     puts("");
     return ret + 1;
@@ -72,11 +88,10 @@ fn readln() -> char* {
     
     let c: int;
     let std_in = _z_get_stdin();
-    let eof_val = _z_get_eof();
 
     while (true) {
         c = _z_fgetc(std_in);
-        if (c == eof_val) break;
+        if (c == Z_EOF) break;
         if (c == 10) break; // '\n'
 
         if (len + 1 >= cap) {
@@ -93,7 +108,7 @@ fn readln() -> char* {
         len = len + 1;
     }
     
-    if (len == 0 && c == eof_val) {
+    if (len == 0 && c == Z_EOF) {
         free(line);
         return NULL;
     }

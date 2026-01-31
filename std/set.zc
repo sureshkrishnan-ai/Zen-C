@@ -2,17 +2,17 @@
 import "./core.zc"
 import "./option.zc"
 
-raw {
-    extern size_t __zen_hash_seed;
-    size_t _set_hash(const void* data, size_t len) {
-        size_t hash = __zen_hash_seed;
-        const unsigned char* bytes = (const unsigned char*)data;
-        for (size_t i = 0; i < len; i++) {
-            hash ^= bytes[i];
-            hash *= 1099511628211UL;
-        }
-        return hash;
+// Pure Zen-C generic hash using FNV-1a algorithm
+fn _set_hash(data: const void*, len: usize) -> usize {
+    let hash = __zen_hash_seed;
+    let bytes: U8* = (U8*)data;
+    
+    for (let i: usize = 0; i < len; i = i + 1) {
+        hash = hash ^ (usize)bytes[i];
+        hash = hash * (usize)1099511628211;
     }
+    
+    return hash;
 }
 
 struct Set<T> {

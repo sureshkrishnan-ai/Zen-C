@@ -14,6 +14,118 @@
 
 char *curr_func_ret = NULL;
 char *run_comptime_block(ParserContext *ctx, Lexer *l);
+extern char *g_current_filename;
+
+/**
+ * @brief Auto-imports std/slice.zc if not already imported.
+ *
+ * This is called when array iteration is detected in for-in loops,
+ * to ensure the Slice<T>, SliceIter<T>, and Option<T> templates are available.
+ */
+static void auto_import_std_slice(ParserContext *ctx)
+{
+    // Check if already imported via templates
+    GenericTemplate *t = ctx->templates;
+    while (t)
+    {
+        if (strcmp(t->name, "Slice") == 0)
+        {
+            return; // Already have the Slice template
+        }
+        t = t->next;
+    }
+
+    // Try to find and import std/slice.zc
+    static const char *std_paths[] = {"std/slice.zc", "./std/slice.zc", NULL};
+    static const char *system_paths[] = {"/usr/local/share/zenc", "/usr/share/zenc", NULL};
+
+    char resolved_path[1024];
+    int found = 0;
+
+    // First, try relative to current file
+    if (g_current_filename)
+    {
+        char *current_dir = xstrdup(g_current_filename);
+        char *last_slash = strrchr(current_dir, '/');
+        if (last_slash)
+        {
+            *last_slash = 0;
+            snprintf(resolved_path, sizeof(resolved_path), "%s/std/slice.zc", current_dir);
+            if (access(resolved_path, R_OK) == 0)
+            {
+                found = 1;
+            }
+        }
+        free(current_dir);
+    }
+
+    // Try relative paths
+    if (!found)
+    {
+        for (int i = 0; std_paths[i] && !found; i++)
+        {
+            if (access(std_paths[i], R_OK) == 0)
+            {
+                strncpy(resolved_path, std_paths[i], sizeof(resolved_path) - 1);
+                resolved_path[sizeof(resolved_path) - 1] = '\0';
+                found = 1;
+            }
+        }
+    }
+
+    // Try system paths
+    if (!found)
+    {
+        for (int i = 0; system_paths[i] && !found; i++)
+        {
+            snprintf(resolved_path, sizeof(resolved_path), "%s/std/slice.zc", system_paths[i]);
+            if (access(resolved_path, R_OK) == 0)
+            {
+                found = 1;
+            }
+        }
+    }
+
+    if (!found)
+    {
+        return; // Could not find std/slice.zc, instantiate_generic will error
+    }
+
+    // Canonicalize path
+    char *real_fn = realpath(resolved_path, NULL);
+    if (real_fn)
+    {
+        strncpy(resolved_path, real_fn, sizeof(resolved_path) - 1);
+        resolved_path[sizeof(resolved_path) - 1] = '\0';
+        free(real_fn);
+    }
+
+    // Check if already imported
+    if (is_file_imported(ctx, resolved_path))
+    {
+        return;
+    }
+    mark_file_imported(ctx, resolved_path);
+
+    // Load and parse the file
+    char *src = load_file(resolved_path);
+    if (!src)
+    {
+        return; // Could not load file
+    }
+
+    Lexer i;
+    lexer_init(&i, src);
+
+    // Save and restore filename context
+    char *saved_fn = g_current_filename;
+    g_current_filename = resolved_path;
+
+    // Parse the slice module contents
+    parse_program_nodes(ctx, &i);
+
+    g_current_filename = saved_fn;
+}
 
 static void check_assignment_condition(ASTNode *cond)
 {
@@ -462,13 +574,7 @@ ASTNode *parse_defer(ParserContext *ctx, Lexer *l)
     }
     else
     {
-        s = ast_create(NODE_RAW_STMT);
-        char *raw_content = consume_and_rewrite(ctx, l);
-        // consume_and_rewrite strips the semicolon, so we must add it back for proper C generation
-        char *safe_content = xmalloc(strlen(raw_content) + 2);
-        sprintf(safe_content, "%s;", raw_content);
-        free(raw_content);
-        s->raw_stmt.content = safe_content;
+        s = parse_statement(ctx, l);
     }
 
     ctx->in_defer_block = prev_in_defer;
@@ -1139,6 +1245,7 @@ ASTNode *parse_for(ParserContext *ctx, Lexer *l)
 
                 ASTNode *obj_expr = start_expr;
                 char *iter_method = "iterator";
+                ASTNode *slice_decl = NULL; // Track if we need to add a slice declaration
 
                 // Check for reference iteration: for x in &vec
                 if (obj_expr->type == NODE_EXPR_UNARY && obj_expr->unary.op &&
@@ -1146,6 +1253,80 @@ ASTNode *parse_for(ParserContext *ctx, Lexer *l)
                 {
                     obj_expr = obj_expr->unary.operand;
                     iter_method = "iter_ref";
+                }
+
+                // Check for array iteration: wrap with Slice<T>::from_array
+                if (obj_expr->type_info && obj_expr->type_info->kind == TYPE_ARRAY &&
+                    obj_expr->type_info->array_size > 0)
+                {
+                    // Create a var decl for the slice
+                    slice_decl = ast_create(NODE_VAR_DECL);
+                    slice_decl->var_decl.name = xstrdup("__zc_arr_slice");
+
+                    // Build type string: Slice<elem_type>
+                    char *elem_type_str = type_to_string(obj_expr->type_info->inner);
+                    char slice_type[256];
+                    sprintf(slice_type, "Slice<%s>", elem_type_str);
+                    slice_decl->var_decl.type_str = xstrdup(slice_type);
+
+                    ASTNode *from_array_call = ast_create(NODE_EXPR_CALL);
+                    ASTNode *static_method = ast_create(NODE_EXPR_VAR);
+
+                    // The function name for static methods is Type::method format
+                    char func_name[512];
+                    snprintf(func_name, 511, "%s::from_array", slice_type);
+                    static_method->var_ref.name = xstrdup(func_name);
+
+                    from_array_call->call.callee = static_method;
+
+                    // Create arguments
+                    ASTNode *arr_addr = ast_create(NODE_EXPR_UNARY);
+                    arr_addr->unary.op = xstrdup("&");
+                    arr_addr->unary.operand = obj_expr;
+
+                    ASTNode *arr_cast = ast_create(NODE_EXPR_CAST);
+                    char cast_type[256];
+                    sprintf(cast_type, "%s*", elem_type_str);
+                    arr_cast->cast.target_type = xstrdup(cast_type);
+                    arr_cast->cast.expr = arr_addr;
+
+                    ASTNode *size_arg = ast_create(NODE_EXPR_LITERAL);
+                    size_arg->literal.type_kind = LITERAL_INT;
+                    size_arg->literal.int_val = obj_expr->type_info->array_size;
+                    char size_buf[32];
+                    sprintf(size_buf, "%d", obj_expr->type_info->array_size);
+                    size_arg->literal.string_val = xstrdup(size_buf);
+
+                    arr_cast->next = size_arg;
+                    from_array_call->call.args = arr_cast;
+                    from_array_call->call.arg_count = 2;
+
+                    slice_decl->var_decl.init_expr = from_array_call;
+
+                    // Manually trigger generic instantiation for Slice<T>
+                    // This ensures that Slice_int, Slice_float, etc. structures are generated
+                    // First, ensure std/slice.zc is imported (auto-import if needed)
+                    auto_import_std_slice(ctx);
+                    Token dummy_tok = {0};
+                    instantiate_generic(ctx, "Slice", elem_type_str, elem_type_str, dummy_tok);
+
+                    // Instantiate SliceIter and Option too for the loop logic
+                    char iter_type[256];
+                    sprintf(iter_type, "SliceIter<%s>", elem_type_str);
+                    instantiate_generic(ctx, "SliceIter", elem_type_str, elem_type_str, dummy_tok);
+
+                    char option_type[256];
+                    sprintf(option_type, "Option<%s>", elem_type_str);
+                    instantiate_generic(ctx, "Option", elem_type_str, elem_type_str, dummy_tok);
+
+                    // Replace obj_expr with a reference to the slice variable
+                    ASTNode *slice_ref = ast_create(NODE_EXPR_VAR);
+                    slice_ref->var_ref.name = xstrdup("__zc_arr_slice");
+                    slice_ref->resolved_type =
+                        xstrdup(slice_type); // Explicitly set type for codegen
+                    obj_expr = slice_ref;
+
+                    free(elem_type_str);
                 }
 
                 // var __it = obj.iterator();
@@ -1188,6 +1369,34 @@ ASTNode *parse_for(ParserContext *ctx, Lexer *l)
         stmts_tail = node;                                                                         \
     }
 
+                char *iter_type_ptr = NULL;
+                char *option_type_ptr = NULL;
+
+                if (slice_decl)
+                {
+                    char *slice_t = slice_decl->var_decl.type_str;
+                    char *start = strchr(slice_t, '<');
+                    if (start)
+                    {
+                        char *end = strrchr(slice_t, '>');
+                        if (end)
+                        {
+                            int len = end - start - 1;
+                            char *elem = xmalloc(len + 1);
+                            strncpy(elem, start + 1, len);
+                            elem[len] = 0;
+
+                            iter_type_ptr = xmalloc(256);
+                            sprintf(iter_type_ptr, "SliceIter<%s>", elem);
+
+                            option_type_ptr = xmalloc(256);
+                            sprintf(option_type_ptr, "Option<%s>", elem);
+
+                            free(elem);
+                        }
+                    }
+                }
+
                 // var __opt = __it.next();
                 ASTNode *opt_decl = ast_create(NODE_VAR_DECL);
                 opt_decl->var_decl.name = xstrdup("__opt");
@@ -1198,6 +1407,10 @@ ASTNode *parse_for(ParserContext *ctx, Lexer *l)
                 ASTNode *memb_next = ast_create(NODE_EXPR_MEMBER);
                 ASTNode *it_ref = ast_create(NODE_EXPR_VAR);
                 it_ref->var_ref.name = xstrdup("__it");
+                if (iter_type_ptr)
+                {
+                    it_ref->resolved_type = xstrdup(iter_type_ptr);
+                }
                 memb_next->member.target = it_ref;
                 memb_next->member.field = xstrdup("next");
                 call_next->call.callee = memb_next;
@@ -1210,15 +1423,22 @@ ASTNode *parse_for(ParserContext *ctx, Lexer *l)
                 ASTNode *memb_is_none = ast_create(NODE_EXPR_MEMBER);
                 ASTNode *opt_ref1 = ast_create(NODE_EXPR_VAR);
                 opt_ref1->var_ref.name = xstrdup("__opt");
+                if (option_type_ptr)
+                {
+                    opt_ref1->resolved_type = xstrdup(option_type_ptr);
+                }
                 memb_is_none->member.target = opt_ref1;
                 memb_is_none->member.field = xstrdup("is_none");
                 call_is_none->call.callee = memb_is_none;
+                call_is_none->call.args = NULL;
+                call_is_none->call.arg_count = 0;
 
-                ASTNode *break_stmt = ast_create(NODE_BREAK);
-
+                // if (__opt.is_none()) break;
                 ASTNode *if_break = ast_create(NODE_IF);
                 if_break->if_stmt.condition = call_is_none;
+                ASTNode *break_stmt = ast_create(NODE_BREAK);
                 if_break->if_stmt.then_body = break_stmt;
+                if_break->if_stmt.else_body = NULL;
                 APPEND_STMT(if_break);
 
                 // var <user_var> = __opt.unwrap();
@@ -1231,25 +1451,28 @@ ASTNode *parse_for(ParserContext *ctx, Lexer *l)
                 ASTNode *memb_unwrap = ast_create(NODE_EXPR_MEMBER);
                 ASTNode *opt_ref2 = ast_create(NODE_EXPR_VAR);
                 opt_ref2->var_ref.name = xstrdup("__opt");
+                if (option_type_ptr)
+                {
+                    opt_ref2->resolved_type = xstrdup(option_type_ptr);
+                }
                 memb_unwrap->member.target = opt_ref2;
                 memb_unwrap->member.field = xstrdup("unwrap");
                 call_unwrap->call.callee = memb_unwrap;
+                call_unwrap->call.args = NULL;
+                call_unwrap->call.arg_count = 0;
 
                 user_var_decl->var_decl.init_expr = call_unwrap;
                 APPEND_STMT(user_var_decl);
 
-                // User Body
+                // User body statements
                 enter_scope(ctx);
                 add_symbol(ctx, var_name, NULL, NULL);
 
-                ASTNode *user_body_node;
-                if (lexer_peek(l).type == TOK_LBRACE)
+                // Body block
+                ASTNode *stmt = parse_statement(ctx, l);
+                ASTNode *user_body_node = stmt;
+                if (stmt && stmt->type != NODE_BLOCK)
                 {
-                    user_body_node = parse_block(ctx, l);
-                }
-                else
-                {
-                    ASTNode *stmt = parse_statement(ctx, l);
                     ASTNode *blk = ast_create(NODE_BLOCK);
                     blk->block.statements = stmt;
                     user_body_node = blk;
@@ -1262,10 +1485,21 @@ ASTNode *parse_for(ParserContext *ctx, Lexer *l)
                 loop_body->block.statements = stmts_head;
                 while_loop->while_stmt.body = loop_body;
 
-                // Wrap entire thing in a block to scope _it
+                // Wrap entire thing in a block to scope __it (and __zc_arr_slice if present)
                 ASTNode *outer_block = ast_create(NODE_BLOCK);
-                it_decl->next = while_loop;
-                outer_block->block.statements = it_decl;
+                if (slice_decl)
+                {
+                    // Chain: slice_decl -> it_decl -> while_loop
+                    slice_decl->next = it_decl;
+                    it_decl->next = while_loop;
+                    outer_block->block.statements = slice_decl;
+                }
+                else
+                {
+                    // Chain: it_decl -> while_loop
+                    it_decl->next = while_loop;
+                    outer_block->block.statements = it_decl;
+                }
 
                 return outer_block;
             }
@@ -1877,7 +2111,7 @@ ASTNode *parse_statement(ParserContext *ctx, Lexer *l)
         lexer_next(&lookahead);
         TokenType next_type = lexer_peek(&lookahead).type;
 
-        if (next_type == TOK_SEMICOLON || next_type == TOK_DOTDOT)
+        if (next_type == TOK_SEMICOLON || next_type == TOK_DOTDOT || next_type == TOK_RBRACE)
         {
             Token t = lexer_next(l); // consume string
 
@@ -1894,8 +2128,7 @@ ASTNode *parse_statement(ParserContext *ctx, Lexer *l)
                 inner[t.len - 2] = 0;
             }
 
-            // ; means println (end of line), .. means print (continuation)
-            int is_ln = (next_type == TOK_SEMICOLON);
+            int is_ln = (next_type == TOK_SEMICOLON || next_type == TOK_RBRACE);
             char **used_syms = NULL;
             int used_count = 0;
             char *code =
@@ -1913,6 +2146,7 @@ ASTNode *parse_statement(ParserContext *ctx, Lexer *l)
                     lexer_next(l); // consume optional ;
                 }
             }
+            // If TOK_RBRACE, do not consume it, so parse_block can see it and terminate loop.
 
             ASTNode *n = ast_create(NODE_RAW_STMT);
             // Append semicolon to Statement Expression to make it a valid statement
@@ -3185,7 +3419,7 @@ char *run_comptime_block(ParserContext *ctx, Lexer *l)
             ASTNode *fn = ref->node;
             if (fn && fn->type == NODE_FUNCTION && fn->func.is_comptime)
             {
-                emit_func_signature(f, fn, NULL);
+                emit_func_signature(ctx, f, fn, NULL);
                 fprintf(f, ";\n");
                 codegen_node_single(ctx, fn, f);
             }

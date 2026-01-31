@@ -448,6 +448,39 @@ void codegen_node(ParserContext *ctx, ASTNode *node, FILE *out)
         emit_type_aliases(kids, out);  // Emit local aliases (redundant but safe)
         emit_trait_defs(kids, out);
 
+        // Also emit traits from parsed_globals_list (from auto-imported files like std/mem.zc)
+        // but only if they weren't already emitted from kids
+        StructRef *trait_ref = ctx->parsed_globals_list;
+        while (trait_ref)
+        {
+            if (trait_ref->node && trait_ref->node->type == NODE_TRAIT)
+            {
+                // Check if this trait was already in kids (explicitly imported)
+                int already_in_kids = 0;
+                ASTNode *k = kids;
+                while (k)
+                {
+                    if (k->type == NODE_TRAIT && k->trait.name && trait_ref->node->trait.name &&
+                        strcmp(k->trait.name, trait_ref->node->trait.name) == 0)
+                    {
+                        already_in_kids = 1;
+                        break;
+                    }
+                    k = k->next;
+                }
+
+                if (!already_in_kids)
+                {
+                    // Create a temporary single-node list for emit_trait_defs
+                    ASTNode *saved_next = trait_ref->node->next;
+                    trait_ref->node->next = NULL;
+                    emit_trait_defs(trait_ref->node, out);
+                    trait_ref->node->next = saved_next;
+                }
+            }
+            trait_ref = trait_ref->next;
+        }
+
         // Track emitted raw statements to prevent duplicates
         EmittedContent *emitted_raw = NULL;
 
@@ -616,7 +649,7 @@ void codegen_node(ParserContext *ctx, ASTNode *node, FILE *out)
             }
         }
 
-        emit_protos(merged_funcs, out);
+        emit_protos(ctx, merged_funcs, out);
 
         emit_impl_vtables(ctx, out);
 

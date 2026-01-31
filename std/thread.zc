@@ -5,7 +5,13 @@ include <unistd.h>
 
 import "./core.zc"
 import "./result.zc"
+import "./mem.zc"
 
+// Essential raw block: required for pthread operations and closure trampolining
+// This block cannot be eliminated because:
+// 1. z_closure_T is an internal compiler type for Zen-C closures
+// 2. pthread_t, pthread_mutex_t are opaque types that can't be extern'd with void*
+// 3. The trampoline function needs to cast and execute Zen-C closures
 raw {
     typedef void (*ZenThreadFunc)(void*);
     
@@ -120,11 +126,17 @@ impl Mutex {
         if (self.handle) {
             _z_mutex_destroy(self.handle);
             free(self.handle);
+            self.handle = NULL;
         }
+    }
+}
+
+impl Drop for Mutex {
+    fn drop(self) {
+        self.free();
     }
 }
 
 fn sleep_ms(ms: int) {
     _z_usleep(ms * 1000);
 }
-

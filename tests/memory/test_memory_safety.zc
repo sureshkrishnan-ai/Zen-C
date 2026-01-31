@@ -1,5 +1,6 @@
 
 import "std/mem.zc"
+import "std/slice.zc"
 
 // ** Globals **
 let DROP_COUNT = 0;
@@ -127,11 +128,13 @@ test "test_slice" {
     let data: int[5] = [1, 2, 3, 4, 5];
     let s = Slice<int>::new(&data[0], 5);
     f"  Slice len: {(int)s.len}";
-    let v2 = s.get(2);
+    let opt_v2 = s.get(2);
+    let v2 = opt_v2.unwrap();
     f"  Slice[2]: {v2}";
     assert(v2 == 3, "Slice get failed");
-    s.set(0, 99);
-    let v0 = s.get(0);
+    s.data[0] = 99;
+    let opt_v0 = s.get(0);
+    let v0 = opt_v0.unwrap();
     f"  After set: Slice[0] = {v0}";
     assert(v0 == 99, "Slice set failed");
     "  ✓ Slice works!";

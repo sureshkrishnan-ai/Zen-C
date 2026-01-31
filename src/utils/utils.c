@@ -533,9 +533,81 @@ char g_cflags[MAX_FLAGS_SIZE] = "";
 int g_warning_count = 0;
 CompilerConfig g_config = {0};
 
+// Helper for environment expansion
+static void expand_env_vars(char *dest, size_t dest_size, const char *src)
+{
+    char *d = dest;
+    const char *s = src;
+    size_t remaining = dest_size - 1;
+
+    while (*s && remaining > 0)
+    {
+        if (*s == '$' && *(s + 1) == '{')
+        {
+            const char *end = strchr(s + 2, '}');
+            if (end)
+            {
+                char var_name[256];
+                int len = end - (s + 2);
+                if (len < 255)
+                {
+                    strncpy(var_name, s + 2, len);
+                    var_name[len] = 0;
+                    char *val = getenv(var_name);
+                    if (val)
+                    {
+                        size_t val_len = strlen(val);
+                        if (val_len < remaining)
+                        {
+                            strcpy(d, val);
+                            d += val_len;
+                            remaining -= val_len;
+                            s = end + 1;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        *d++ = *s++;
+        remaining--;
+    }
+    *d = 0;
+}
+
+// Helper to determine active OS
+static int is_os_active(const char *os_name)
+{
+    if (0 == strcmp(os_name, "linux"))
+    {
+#ifdef __linux__
+        return 1;
+#else
+        return 0;
+#endif
+    }
+    else if (0 == strcmp(os_name, "windows"))
+    {
+#ifdef _WIN32
+        return 1;
+#else
+        return 0;
+#endif
+    }
+    else if (0 == strcmp(os_name, "macos") || 0 == strcmp(os_name, "darwin"))
+    {
+#ifdef __APPLE__
+        return 1;
+#else
+        return 0;
+#endif
+    }
+    return 0;
+}
+
 void scan_build_directives(ParserContext *ctx, const char *src)
 {
-    (void)ctx; // Currently unused, reserved for future use
+    (void)ctx;
     const char *p = src;
     while (*p)
     {
@@ -554,103 +626,113 @@ void scan_build_directives(ParserContext *ctx, const char *src)
                 len++;
             }
 
-            char line[2048];
+            char raw_line[2048];
             if (len >= 2047)
             {
                 len = 2047;
             }
-            strncpy(line, start, len);
-            line[len] = 0;
+            strncpy(raw_line, start, len);
+            raw_line[len] = 0;
 
-            if (0 == strncmp(line, "link:", 5))
+            char line[2048];
+            expand_env_vars(line, sizeof(line), raw_line);
+
+            char *directive = line;
+            char *colon = strchr(line, ':');
+            if (colon)
             {
-                char *val = line + 5;
-                while (*val == ' ')
+                *colon = 0;
+                if (is_os_active(line))
                 {
-                    val++;
+                    directive = colon + 1;
+                    while (*directive == ' ')
+                    {
+                        directive++;
+                    }
                 }
+                else if (0 == strcmp(line, "linux") || 0 == strcmp(line, "windows") ||
+                         0 == strcmp(line, "macos"))
+                {
+                    goto next_line;
+                }
+                else
+                {
+                    *colon = ':';
+                    directive = line;
+                }
+            }
+
+            // Process Directive
+            if (0 == strncmp(directive, "link:", 5))
+            {
                 if (strlen(g_link_flags) > 0)
                 {
                     strcat(g_link_flags, " ");
                 }
-                strcat(g_link_flags, val);
+                strcat(g_link_flags, directive + 5);
             }
-            else if (0 == strncmp(line, "cflags:", 7))
+            else if (0 == strncmp(directive, "cflags:", 7))
             {
-                char *val = line + 7;
-                while (*val == ' ')
-                {
-                    val++;
-                }
                 if (strlen(g_cflags) > 0)
                 {
                     strcat(g_cflags, " ");
                 }
-                strcat(g_cflags, val);
+                strcat(g_cflags, directive + 7);
             }
-            else if (0 == strncmp(line, "include:", 8))
+            else if (0 == strncmp(directive, "include:", 8))
             {
-                char *val = line + 8;
-                while (*val == ' ')
-                {
-                    val++;
-                }
                 char flags[2048];
-                sprintf(flags, "-I%s", val);
+                sprintf(flags, "-I%s", directive + 8);
                 if (strlen(g_cflags) > 0)
                 {
                     strcat(g_cflags, " ");
                 }
                 strcat(g_cflags, flags);
             }
-            else if (strncmp(line, "lib:", 4) == 0)
+            else if (strncmp(directive, "lib:", 4) == 0)
             {
-                char *val = line + 4;
-                while (*val == ' ')
-                {
-                    val++;
-                }
                 char flags[2048];
-                sprintf(flags, "-L%s", val);
+                sprintf(flags, "-L%s", directive + 4);
                 if (strlen(g_link_flags) > 0)
                 {
                     strcat(g_link_flags, " ");
                 }
                 strcat(g_link_flags, flags);
             }
-            else if (strncmp(line, "define:", 7) == 0)
+            else if (strncmp(directive, "framework:", 10) == 0)
             {
-                char *val = line + 7;
-                while (*val == ' ')
-                {
-                    val++;
-                }
                 char flags[2048];
-                sprintf(flags, "-D%s", val);
+                sprintf(flags, "-framework %s", directive + 10);
+                if (strlen(g_link_flags) > 0)
+                {
+                    strcat(g_link_flags, " ");
+                }
+                strcat(g_link_flags, flags);
+            }
+            else if (strncmp(directive, "define:", 7) == 0)
+            {
+                char flags[2048];
+                sprintf(flags, "-D%s", directive + 7);
                 if (strlen(g_cflags) > 0)
                 {
                     strcat(g_cflags, " ");
                 }
                 strcat(g_cflags, flags);
             }
-            else if (0 == strncmp(line, "shell:", 6))
+            else if (0 == strncmp(directive, "shell:", 6))
             {
-                char *cmd = line + 6;
-                // printf("[zprep] Running shell: %s\n", cmd);
-                int res = system(cmd);
-                if (res != 0)
+                if (system(directive + 6) != 0)
                 {
-                    zwarn("Shell directive failed: %s", cmd);
+                    zwarn("Shell directive failed: %s", directive + 6);
                 }
             }
-            else if (strncmp(line, "get:", 4) == 0)
+            else if (strncmp(directive, "get:", 4) == 0)
             {
-                char *url = line + 4;
+                char *url = directive + 4;
                 while (*url == ' ')
                 {
                     url++;
                 }
-
                 char *filename = strrchr(url, '/');
                 if (!filename)
                 {
@@ -660,8 +742,6 @@ void scan_build_directives(ParserContext *ctx, const char *src)
                 {
                     filename++;
                 }
-
-                // Check if file exists to avoid redownloading.
                 FILE *f = fopen(filename, "r");
                 if (f)
                 {
@@ -669,16 +749,13 @@ void scan_build_directives(ParserContext *ctx, const char *src)
                 }
                 else
                 {
-                    printf("[zprep] Downloading %s...\n", filename);
                     char cmd[8192];
                     if (z_is_windows())
                     {
-                        // On Windows, try curl which is often built-in now
                         sprintf(cmd, "curl -s -L \"%s\" -o \"%s\"", url, filename);
                     }
                     else
                     {
-                        // Try wget, then curl.
                         sprintf(cmd, "wget -q \"%s\" -O \"%s\" || curl -s -L \"%s\" -o \"%s\"", url,
                                 filename, url, filename);
                     }
@@ -688,40 +765,27 @@ void scan_build_directives(ParserContext *ctx, const char *src)
                     }
                 }
             }
-            else if (strncmp(line, "pkg-config:", 11) == 0)
+            else if (strncmp(directive, "pkg-config:", 11) == 0)
             {
-                char *libs = line + 11;
-                while (*libs == ' ')
-                {
-                    libs++;
-                }
-
-                if (z_is_windows())
-                {
-                    zwarn("pkg-config is usually not available on Windows. Build directive "
-                          "'pkg-config:%s' might fail.",
-                          libs);
-                }
-
+                char *libs = directive + 11;
                 char cmd[4096];
                 sprintf(cmd, "pkg-config --cflags %s", libs);
                 FILE *fp = popen(cmd, "r");
                 if (fp)
                 {
-                    char flags[4096];
-                    flags[0] = 0;
-                    if (fgets(flags, sizeof(flags), fp))
+                    char buf[1024];
+                    if (fgets(buf, sizeof(buf), fp))
                     {
-                        int len = strlen(flags);
-                        if (len > 0 && flags[len - 1] == '\n')
+                        size_t l = strlen(buf);
+                        if (l > 0 && buf[l - 1] == '\n')
                         {
-                            flags[len - 1] = 0;
+                            buf[l - 1] = 0;
                         }
                         if (strlen(g_cflags) > 0)
                         {
                             strcat(g_cflags, " ");
                         }
-                        strcat(g_cflags, flags);
+                        strcat(g_cflags, buf);
                     }
                     pclose(fp);
                 }
@@ -730,32 +794,35 @@ void scan_build_directives(ParserContext *ctx, const char *src)
                 fp = popen(cmd, "r");
                 if (fp)
                 {
-                    char flags[4096];
-                    flags[0] = 0;
-                    if (fgets(flags, sizeof(flags), fp))
+                    char buf[1024];
+                    if (fgets(buf, sizeof(buf), fp))
                     {
-                        int len = strlen(flags);
-                        if (len > 0 && flags[len - 1] == '\n')
+                        size_t l = strlen(buf);
+                        if (l > 0 && buf[l - 1] == '\n')
                         {
-                            flags[len - 1] = 0;
+                            buf[l - 1] = 0;
                         }
                         if (strlen(g_link_flags) > 0)
                         {
                             strcat(g_link_flags, " ");
                         }
-                        strcat(g_link_flags, flags);
+                        strcat(g_link_flags, buf);
                     }
                     pclose(fp);
                 }
             }
+            else
+            {
+                zwarn("Unknown build directive: '%s'", directive);
+            }
 
             p += len;
         }
+    next_line:
         while (*p && *p != '\n')
         {
             p++;
         }
-
         if (*p == '\n')
         {
             p++;

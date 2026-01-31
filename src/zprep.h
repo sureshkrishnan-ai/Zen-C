@@ -108,6 +108,7 @@ typedef enum
     TOK_PREPROC,   ///< Preprocessor directive (#...).
     TOK_ALIAS,     ///< 'alias' keyword.
     TOK_COMMENT,   ///< Comment (usually skipped).
+    TOK_OPAQUE,    ///< 'opaque' keyword.
     TOK_UNKNOWN    ///< Unknown token.
 } TokenType;
 
@@ -358,6 +359,7 @@ typedef struct
     int mode_transpile;  ///< 1 if 'transpile' command (to C).
     int use_cpp;         ///< 1 if --cpp (emit C++ compatible code).
     int use_cuda;        ///< 1 if --cuda (emit CUDA-compatible code).
+    int use_objc;        ///< 1 if --objc (emit Objective-C compatible code).
 
     // GCC Flags accumulator.
     char gcc_flags[4096]; ///< Flags passed to the backend compiler.

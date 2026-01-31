@@ -30,7 +30,7 @@ test "test_std_env_get_dup" {
     assert(env_var.is_some(), "env_var should have a value");
 
     let value = env_var.unwrap();
-    assert(value.c_str() == "ok3", "value should be ok3");
+    assert(strcmp(value.c_str(), "ok3") == 0, "value should be ok3");
 
     value.free();
 

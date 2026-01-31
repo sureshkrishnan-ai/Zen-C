@@ -58,6 +58,9 @@ typedef enum
     TYPE_ARRAY,    ///< Fixed size array [N].
     TYPE_FUNCTION, ///< Function pointer or reference.
     TYPE_GENERIC,  ///< Generic type parameter (T).
+    TYPE_ALIAS,    ///< Opaque type alias.
+    TYPE_BITINT,   ///< C23 _BitInt(N).
+    TYPE_UBITINT,  ///< C23 unsigned _BitInt(N).
     TYPE_UNKNOWN   ///< Unknown/unresolved type.
 } TypeKind;
 
@@ -74,7 +77,7 @@ typedef struct Type
     int is_const;           ///< 1 if const-qualified.
     int is_explicit_struct; ///< 1 if defined with "struct" keyword explicitly.
     int is_raw;             // Raw function pointer (fn*)
-    int array_size;         ///< Size for fixed-size arrays.
+    int array_size;         ///< Size for fixed-size arrays. For TYPE_BITINT, this is the bit width.
     union
     {
         int is_varargs;  ///< 1 if function type is variadic.
@@ -84,6 +87,11 @@ typedef struct Type
             int has_drop;     ///< 1 if type implements Drop trait (RAII).
             int has_iterable; ///< 1 if type implements Iterable trait.
         } traits;
+        struct
+        {
+            int is_opaque_alias;
+            char *alias_defined_in_file;
+        } alias;
     };
 } Type;
 
@@ -221,6 +229,8 @@ struct ASTNode
             int cuda_device; // @device -> __device__
             int cuda_host;   // @host -> __host__
 
+            char **c_type_overrides; // @ctype("...") per parameter
+
             Attribute *attributes; // Custom attributes
         } func;
 
@@ -263,6 +273,8 @@ struct ASTNode
         {
             char *alias;
             char *original_type;
+            int is_opaque;
+            char *defined_in_file;
         } type_alias;
 
         struct
@@ -436,6 +448,8 @@ struct ASTNode
             Attribute *attributes; // Custom attributes
             char **used_structs;   // Names of structs used/mixed-in
             int used_struct_count;
+            int is_opaque;
+            char *defined_in_file; // File where the struct is defined (for privacy check)
         } strct;
 
         struct

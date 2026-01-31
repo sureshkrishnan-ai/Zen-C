@@ -30,7 +30,7 @@ fn str_find_case(haystack: string, needle: string, ignore_case: bool) -> Option<
     let n = needle;
     let n_len = strlen(needle);
     
-    while (*h != 0) 
+    while (*h != '\0') 
     {
         let is_match: bool = true;
         for i in 0..n_len
@@ -52,7 +52,7 @@ fn str_find_case(haystack: string, needle: string, ignore_case: bool) -> Option<
     return Option<string>::None();
 }
 
-fn print_highlight(line: string, match_ptr: string, match_len: usize, config: GrepConfig) {
+fn print_highlight(line: string, match_ptr: string, match_len: usize, config: GrepConfig*) {
     if (!config.color) 
     {
         "{line}";
@@ -84,7 +84,7 @@ fn print_highlight(line: string, match_ptr: string, match_len: usize, config: Gr
     "{current}";
 }
 
-fn grep_file(path: string, config: GrepConfig) -> Result<int> {
+fn grep_file(path: string, config: GrepConfig*) -> Result<int> {
     let content_str: String = File::read_all(path)?;
     defer content_str.destroy();
     let content = content_str.c_str();
@@ -95,7 +95,7 @@ fn grep_file(path: string, config: GrepConfig) -> Result<int> {
     
     let q_len = strlen(config.query);
     
-    while (*ptr != 0) 
+    while (*ptr != '\0') 
     {
         if (*ptr == '\n') 
         {
@@ -163,7 +163,7 @@ fn grep_file(path: string, config: GrepConfig) -> Result<int> {
     return Result<int>::Ok(0);
 }
 
-fn visit_dir(path: string, config: GrepConfig) {
+fn visit_dir(path: string, config: GrepConfig*) {
     let entries_res = File::read_dir(path);
     guard entries_res.is_ok() else return;
     
@@ -287,7 +287,7 @@ fn main(argc: int, argv: string*)
         {
             if (config.recursive) 
             {
-                visit_dir(config.path, config);
+                visit_dir(config.path, &config);
             } 
             else 
             {
@@ -296,7 +296,7 @@ fn main(argc: int, argv: string*)
         } 
         else 
         {
-            let res = grep_file(config.path, config);
+            let res = grep_file(config.path, &config);
             if (res.is_err()) {
                 !"Error: {res.err}";
                 return 1;

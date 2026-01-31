@@ -33,12 +33,25 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
         char *name = token_strdup(t);
 
         // Check for alias
-        const char *aliased = find_type_alias(ctx, name);
-        if (aliased)
+        TypeAlias *alias_node = find_type_alias_node(ctx, name);
+        if (alias_node)
         {
             free(name);
             Lexer tmp;
-            lexer_init(&tmp, aliased);
+            lexer_init(&tmp, alias_node->original_type);
+
+            if (alias_node->is_opaque)
+            {
+                Type *underlying = parse_type_formal(ctx, &tmp);
+                Type *wrapper = type_new(TYPE_ALIAS);
+                wrapper->name = xstrdup(alias_node->alias);
+                wrapper->inner = underlying;
+                wrapper->alias.is_opaque_alias = 1;
+                wrapper->alias.alias_defined_in_file =
+                    alias_node->defined_in_file ? xstrdup(alias_node->defined_in_file) : NULL;
+                return wrapper;
+            }
+
             return parse_type_formal(ctx, &tmp);
         }
 
@@ -286,6 +299,90 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
         {
             free(name);
             return type_new(TYPE_I16);
+        }
+
+        // C23 BitInt Support (i42, u256, etc.)
+        if ((name[0] == 'i' || name[0] == 'u') && isdigit(name[1]))
+        {
+            // Verify it is a purely numeric suffix
+            int valid = 1;
+            for (size_t k = 1; k < strlen(name); k++)
+            {
+                if (!isdigit(name[k]))
+                {
+                    valid = 0;
+                    break;
+                }
+            }
+            if (valid)
+            {
+                int width = atoi(name + 1);
+                if (width > 0)
+                {
+                    // Map standard widths to standard types for standard ABI/C compabitility
+                    if (name[0] == 'i')
+                    {
+                        if (width == 8)
+                        {
+                            free(name);
+                            return type_new(TYPE_I8);
+                        }
+                        if (width == 16)
+                        {
+                            free(name);
+                            return type_new(TYPE_I16);
+                        }
+                        if (width == 32)
+                        {
+                            free(name);
+                            return type_new(TYPE_I32);
+                        }
+                        if (width == 64)
+                        {
+                            free(name);
+                            return type_new(TYPE_I64);
+                        }
+                        if (width == 128)
+                        {
+                            free(name);
+                            return type_new(TYPE_I128);
+                        }
+                    }
+                    else
+                    {
+                        if (width == 8)
+                        {
+                            free(name);
+                            return type_new(TYPE_U8);
+                        }
+                        if (width == 16)
+                        {
+                            free(name);
+                            return type_new(TYPE_U16);
+                        }
+                        if (width == 32)
+                        {
+                            free(name);
+                            return type_new(TYPE_U32);
+                        }
+                        if (width == 64)
+                        {
+                            free(name);
+                            return type_new(TYPE_U64);
+                        }
+                        if (width == 128)
+                        {
+                            free(name);
+                            return type_new(TYPE_U128);
+                        }
+                    }
+
+                    Type *t = type_new(name[0] == 'u' ? TYPE_UBITINT : TYPE_BITINT);
+                    t->array_size = width;
+                    free(name);
+                    return t;
+                }
+            }
         }
         if (strcmp(name, "u16") == 0)
         {

@@ -2,22 +2,32 @@ import "./core.zc"
 import "./result.zc"
 import "./string.zc"
 import "./vec.zc"
+import "./mem.zc"
 
 def Z_SEEK_SET = 0;
 def Z_SEEK_END = 2;
 def Z_F_OK = 0;
 
+include <dirent.h>
+include <sys/stat.h>
+include <unistd.h>
+include <stdlib.h>
+include <stdio.h>
 
-// TODO: restructure this tomorrow.
+// Direct externs for simple functions with const char* parameters
+extern fn access(pathname: const char*, mode: int) -> int;
+extern fn unlink(pathname: const char*) -> int;
+extern fn rmdir(pathname: const char*) -> int;
+extern fn malloc(size: usize) -> void*;
+extern fn free(ptr: void*);
+
+// Minimal raw block: required for opaque FILE*/DIR* types and C struct access
+// These cannot be expressed in Zen-C extern declarations without type conflicts
 raw {
-    #include <dirent.h>
-    #include <sys/stat.h>
-    #include <unistd.h>
-
-    // typedef needed for Vec<DirEntry*> generation if inferred
     typedef struct DirEntry* DirEntryPtr;
     
-    void* _z_fs_fopen(char* path, char* mode) {
+    // FILE* wrappers - fopen/fclose/etc use FILE* which conflicts with void*
+    void* _z_fs_fopen(const char* path, const char* mode) {
         return fopen(path, mode);
     }
 
@@ -40,20 +50,9 @@ raw {
     int64_t _z_fs_ftell(void* stream) {
         return (int64_t)ftell((FILE*)stream);
     }
-
-    int _z_fs_access(char* pathname, int mode) {
-        return access(pathname, mode);
-    }
-
-    int _z_fs_unlink(char* pathname) {
-        return unlink(pathname);
-    }
-
-    int _z_fs_rmdir(char* pathname) {
-        return rmdir(pathname);
-    }
-
-    void* _z_fs_opendir(char* name) {
+    
+    // DIR* wrappers - opendir/closedir/readdir use DIR* which conflicts with void*
+    void* _z_fs_opendir(const char* name) {
         return opendir(name);
     }
 
@@ -61,15 +60,8 @@ raw {
         return closedir((DIR*)dir);
     }
 
-    void* _z_fs_malloc(size_t size) {
-        return malloc(size);
-    }
-
-    void _z_fs_free(void* ptr) {
-        free(ptr);
-    }
-
-    int _z_fs_get_metadata(char* path, uint64_t* size, int* is_dir, int* is_file) {
+    // struct stat access - cannot define matching Zen-C struct for stat
+    int _z_fs_get_metadata(const char* path, uint64_t* size, int* is_dir, int* is_file) {
         struct stat st;
         if (stat(path, &st) != 0) return -1;
         *size = st.st_size;
@@ -78,6 +70,7 @@ raw {
         return 0;
     }
     
+    // struct dirent access - readdir returns struct dirent*
     int _z_fs_read_entry(void* dir, char* out_name, int buf_size, int* is_dir) {
         struct dirent* ent = readdir((DIR*)dir);
         if (!ent) return 0;
@@ -87,7 +80,8 @@ raw {
         return 1;
     }
 
-    int _z_fs_mkdir(char* path) {
+    // mkdir has different signatures on Windows vs POSIX
+    int _z_fs_mkdir(const char* path) {
         #ifdef _WIN32
             return mkdir(path);
         #else
@@ -96,22 +90,18 @@ raw {
     }
 }
 
-extern fn _z_fs_mkdir(path: char*) -> int;
-extern fn _z_fs_get_metadata(path: char*, size: U64*, is_dir: int*, is_file: int*) -> int;
+extern fn _z_fs_mkdir(path: const char*) -> int;
+extern fn _z_fs_get_metadata(path: const char*, size: U64*, is_dir: int*, is_file: int*) -> int;
 extern fn _z_fs_read_entry(dir: void*, out_name: char*, buf_size: int, is_dir: int*) -> int;
-extern fn _z_fs_fopen(path: char*, mode: char*) -> void*;
+extern fn _z_fs_fopen(path: const char*, mode: const char*) -> void*;
 extern fn _z_fs_fclose(stream: void*) -> int;
 extern fn _z_fs_fread(ptr: void*, size: usize, nmemb: usize, stream: void*) -> usize;
 extern fn _z_fs_fwrite(ptr: void*, size: usize, nmemb: usize, stream: void*) -> usize;
-extern fn _z_fs_fseek(stream: void*, offset: long, whence: int) -> int;
-extern fn _z_fs_ftell(stream: void*) -> long;
-extern fn _z_fs_access(pathname: char*, mode: int) -> int;
-extern fn _z_fs_unlink(pathname: char*) -> int;
-extern fn _z_fs_rmdir(pathname: char*) -> int;
-extern fn _z_fs_opendir(name: char*) -> void*;
+extern fn _z_fs_fseek(stream: void*, offset: I64, whence: int) -> int;
+extern fn _z_fs_ftell(stream: void*) -> I64;
+extern fn _z_fs_opendir(name: const char*) -> void*;
 extern fn _z_fs_closedir(dir: void*) -> int;
-extern fn _z_fs_malloc(size: usize) -> void*;
-extern fn _z_fs_free(ptr: void*);
+
 
 struct File {
     handle: void*;
@@ -153,7 +143,7 @@ impl File {
         let size = _z_fs_ftell(self.handle);
         _z_fs_fseek(self.handle, 0, Z_SEEK_SET);
         
-        let buffer: char* = _z_fs_malloc((usize)size + 1);
+        let buffer: char* = malloc((usize)size + 1);
         if (buffer == NULL) {
             return Result<String>::Err("Out of memory");
         }
@@ -162,7 +152,7 @@ impl File {
         buffer[read] = 0;
         
         let s = String::new(buffer);
-        _z_fs_free(buffer);
+        free(buffer);
         
         let res = Result<String>::Ok(s);
         s.forget();
@@ -201,7 +191,7 @@ impl File {
     }
 
     fn exists(path: char*) -> bool {
-        return _z_fs_access(path, Z_F_OK) == 0;
+        return access(path, Z_F_OK) == 0;
     }
 
     fn metadata(path: char*) -> Result<Metadata> {
@@ -228,14 +218,14 @@ impl File {
     }
 
     fn remove_file(path: char*) -> Result<bool> {
-        if (_z_fs_unlink(path) != 0) {
+        if (unlink(path) != 0) {
             return Result<bool>::Err("Failed to remove file");
         }
         return Result<bool>::Ok(true);
     }
 
     fn remove_dir(path: char*) -> Result<bool> {
-        if (_z_fs_rmdir(path) != 0) {
+        if (rmdir(path) != 0) {
             return Result<bool>::Err("Failed to remove directory");
         }
         return Result<bool>::Ok(true);
@@ -248,7 +238,7 @@ impl File {
         }
         
         let entries = Vec<DirEntry>::new();
-        let name_buf: char* = _z_fs_malloc(256);
+        let name_buf: char* = malloc(256);
         
         if (name_buf == NULL) {
             _z_fs_closedir(dir);
@@ -277,7 +267,7 @@ impl File {
             ent.name.forget();
         }
         
-        _z_fs_free(name_buf);
+        free(name_buf);
         _z_fs_closedir(dir);
         
         let res = Result< Vec<DirEntry> >::Ok(entries);

@@ -1,17 +1,22 @@
 
 import "./core.zc"
 import "./option.zc"
+import "./mem.zc"
 
-raw {
-    extern size_t __zen_hash_seed;
-    size_t _map_hash_str(const char* str) {
-        size_t hash = __zen_hash_seed;
-        while (*str) {
-            hash ^= (unsigned char)*str++;
-            hash *= 1099511628211UL;
-        }
-        return hash;
+// Pure Zen-C string hash using FNV-1a algorithm
+fn _map_hash_str(str: const char*) -> usize {
+    let hash = __zen_hash_seed;
+    let i: usize = 0;
+    
+    while (str[i] != 0) {
+        // Cast char to U8 for unsigned byte value
+        let b: U8 = (U8)str[i];
+        hash = hash ^ (usize)b;
+        hash = hash * (usize)1099511628211;
+        i = i + 1;
     }
+    
+    return hash;
 }
 
 struct Map<V> {
@@ -246,5 +251,11 @@ impl Map<V> {
             cap: self.cap,
             idx: 0
         };
+    }
+}
+
+impl Drop for Map<V> {
+    fn drop(self) {
+        self.free();
     }
 }

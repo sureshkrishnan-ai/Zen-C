@@ -90,7 +90,7 @@ test "test_derive" {
     
     // Debug
     let s = p1.to_string();
-    assert(strcmp(s, "Point { ... }") == 0, "Debug string matches");
+    assert(strcmp(s, "Point {{ ... }}") == 0, "Debug string matches");
     
     // Clone
     let p2 = p1.clone();

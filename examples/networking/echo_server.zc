@@ -1,11 +1,13 @@
 
 import "std/net.zc"
 
+def SIZE = 1024;
+
 fn main() {
     "Starting Echo Server on 127.0.0.1:8080...";
     
     let listener_res = TcpListener::bind("127.0.0.1", 8080);
-    if listener_res.is_err() {
+    guard listener_res.is_ok() else {
         !"Failed to bind: {listener_res.err}";
         return 1;
     }
@@ -19,9 +21,9 @@ fn main() {
             let stream = client_res.unwrap();
             defer stream.close();
             
-            let buf: char[1024];
-            
-            let read_res = stream.read(buf, 1024);
+            let buf = (char*)malloc(SIZE);
+            defer free(buf);
+            let read_res = stream.read(buf, SIZE);
             
             if read_res.is_ok() {
                 let bytes = read_res.unwrap();

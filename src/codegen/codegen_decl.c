@@ -3,6 +3,7 @@
 #include "../parser/parser.h"
 #include "../zprep.h"
 #include "codegen.h"
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +13,7 @@ static void emit_freestanding_preamble(FILE *out)
     fputs("#include <stddef.h>\n#include <stdint.h>\n#include "
           "<stdbool.h>\n#include <stdarg.h>\n",
           out);
-    fputs("#ifdef __TINYC__\n#define __auto_type __typeof__\n#endif\n", out);
+    fputs(ZC_TCC_COMPAT_STR, out);
     fputs("typedef size_t usize;\ntypedef char* string;\n", out);
     fputs("#define U0 void\n#define I8 int8_t\n#define U8 uint8_t\n#define I16 "
           "int16_t\n#define U16 uint16_t\n",
@@ -49,6 +50,7 @@ void emit_preamble(ParserContext *ctx, FILE *out)
     else
     {
         // Standard hosted preamble.
+        fputs("#define _GNU_SOURCE\n", out);
         fputs("#include <stdio.h>\n#include <stdlib.h>\n#include "
               "<stddef.h>\n#include <string.h>\n",
               out);
@@ -84,20 +86,18 @@ void emit_preamble(ParserContext *ctx, FILE *out)
         else
         {
             // C mode
+            fputs("#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202300L\n", out);
+            fputs("#define ZC_AUTO auto\n", out);
+            fputs("#else\n", out);
             fputs("#define ZC_AUTO __auto_type\n", out);
+            fputs("#endif\n", out);
             fputs("#define ZC_CAST(T, x) ((T)(x))\n", out);
-            fputs("#ifdef __TINYC__\n#define __auto_type __typeof__\n#endif\n", out);
+            fputs(ZC_TCC_COMPAT_STR, out);
             fputs("static inline const char* _z_bool_str(_Bool b) { return b ? \"true\" : "
                   "\"false\"; }\n",
                   out);
-            fputs("#define _z_str(x) _Generic((x), _Bool: \"%s\", char: \"%c\", "
-                  "signed char: \"%c\", unsigned char: \"%u\", short: \"%d\", "
-                  "unsigned short: \"%u\", int: \"%d\", unsigned int: \"%u\", "
-                  "long: \"%ld\", unsigned long: \"%lu\", long long: \"%lld\", "
-                  "unsigned long long: \"%llu\", float: \"%f\", double: \"%f\", "
-                  "char*: \"%s\", void*: \"%p\")\n",
-                  out);
-            fputs("#define _z_arg(x) _Generic((x), _Bool: _z_bool_str(x), default: (x))\n", out);
+            fputs(ZC_C_GENERIC_STR, out);
+            fputs(ZC_C_ARG_GENERIC_STR, out);
         }
 
         fputs("typedef size_t usize;\ntypedef char* string;\n", out);
@@ -107,12 +107,11 @@ void emit_preamble(ParserContext *ctx, FILE *out)
             fputs("typedef struct { pthread_t thread; void *result; } Async;\n", out);
         }
         fputs("typedef struct { void *func; void *ctx; } z_closure_T;\n", out);
-        fputs("#define U0 void\n#define I8 int8_t\n#define U8 uint8_t\n#define I16 "
-              "int16_t\n#define U16 uint16_t\n",
+        fputs("typedef void U0;\ntypedef int8_t I8;\ntypedef uint8_t U8;\ntypedef "
+              "int16_t I16;\ntypedef uint16_t U16;\n",
               out);
-        fputs("#define I32 int32_t\n#define U32 uint32_t\n#define I64 "
-              "int64_t\n#define U64 "
-              "uint64_t\n",
+        fputs("typedef int32_t I32;\ntypedef uint32_t U32;\ntypedef int64_t I64;\ntypedef "
+              "uint64_t U64;\n",
               out);
         fputs("#define F32 float\n#define F64 double\n", out);
 
@@ -700,7 +699,7 @@ void emit_globals(ParserContext *ctx, ASTNode *node, FILE *out)
 }
 
 // Emit function prototypes
-void emit_protos(ASTNode *node, FILE *out)
+void emit_protos(ParserContext *ctx, ASTNode *node, FILE *out)
 {
     ASTNode *f = node;
     while (f)
@@ -723,7 +722,7 @@ void emit_protos(ASTNode *node, FILE *out)
             }
             else
             {
-                emit_func_signature(out, f, NULL);
+                emit_func_signature(ctx, out, f, NULL);
                 fprintf(out, ";\n");
             }
         }
@@ -801,7 +800,7 @@ void emit_protos(ASTNode *node, FILE *out)
                 }
                 else
                 {
-                    emit_func_signature(out, m, proto);
+                    emit_func_signature(ctx, out, m, proto);
                     fprintf(out, ";\n");
                 }
 

@@ -188,9 +188,10 @@ clean:
 	@echo "=> Clean complete!"
 
 # Test
-test: $(TARGET)
+test: $(TARGET) $(PLUGINS)
 	./tests/run_tests.sh
 	./tests/run_codegen_tests.sh
+	./tests/run_example_transpile.sh
 
 # Build with alternative compilers
 zig:

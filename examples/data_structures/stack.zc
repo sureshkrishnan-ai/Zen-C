@@ -1,11 +1,11 @@
 
 import "std.zc"
 
-struct Stack<T> {
+struct MyStack<T> {
     data: Vec<T>;
 }
 
-impl Stack<T> {
+impl MyStack<T> {
     fn new() -> Self {
         return Self { data: Vec<T>::new() };
     }
@@ -43,7 +43,7 @@ impl Stack<T> {
 
 fn main() {
     "[Integer Stack]";
-    let int_stack = Stack<int>::new();
+    let int_stack = MyStack<int>::new();
     defer int_stack.free();   
  
     "Pushing: 10, 20, 30";
@@ -64,7 +64,7 @@ fn main() {
     
     "";
     "[String Stack]";
-    let str_stack = Stack<String>::new();
+    let str_stack = MyStack<String>::new();
     defer str_stack.free();   
  
     str_stack.push(String::new("First"));

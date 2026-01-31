@@ -261,6 +261,8 @@ typedef struct TypeAlias
     char *alias;         ///< New type name.
     char *original_type; ///< Original type.
     struct TypeAlias *next;
+    int is_opaque;
+    char *defined_in_file;
 } TypeAlias;
 
 /**
@@ -514,12 +516,9 @@ char *sanitize_mangled_name(const char *name);
 /**
  * @brief Registers a type alias.
  */
-void register_type_alias(ParserContext *ctx, const char *alias, const char *original);
-
-/**
- * @brief Finds a type alias.
- */
-const char *find_type_alias(ParserContext *ctx, const char *alias);
+TypeAlias *find_type_alias_node(ParserContext *ctx, const char *name);
+void register_type_alias(ParserContext *ctx, const char *alias, const char *original, int is_opaque,
+                         const char *defined_in_file);
 
 /**
  * @brief Registers an implementation.
@@ -562,7 +561,8 @@ ASTNode *parse_arrow_lambda_multi(ParserContext *ctx, Lexer *l, char **param_nam
  * @brief Parses and converts arguments.
  */
 char *parse_and_convert_args(ParserContext *ctx, Lexer *l, char ***defaults_out, int *count_out,
-                             Type ***types_out, char ***names_out, int *is_varargs_out);
+                             Type ***types_out, char ***names_out, int *is_varargs_out,
+                             char ***ctype_overrides_out);
 
 /**
  * @brief Checks if a file has been imported.
@@ -681,10 +681,6 @@ void register_selective_import(ParserContext *ctx, const char *symbol, const cha
 SelectiveImport *find_selective_import(ParserContext *ctx, const char *name);
 
 // Type Aliases
-/**
- * @brief Registers a type alias.
- */
-void register_type_alias(ParserContext *ctx, const char *alias, const char *original);
 
 /**
  * @brief Finds a type alias.
@@ -739,6 +735,11 @@ FuncSig *find_func(ParserContext *ctx, const char *name);
  * @brief Parses a type formal.
  */
 Type *parse_type_formal(ParserContext *ctx, Lexer *l);
+
+/**
+ * @brief Checks compatibility of opaque aliases (allows access within defining file).
+ */
+int check_opaque_alias_compat(ParserContext *ctx, Type *a, Type *b);
 
 /**
  * @brief Parses a type.
@@ -889,7 +890,7 @@ ASTNode *parse_def(ParserContext *ctx, Lexer *l);
 /**
  * @brief Parses a type alias.
  */
-ASTNode *parse_type_alias(ParserContext *ctx, Lexer *l);
+ASTNode *parse_type_alias(ParserContext *ctx, Lexer *l, int is_opaque);
 
 /**
  * @brief Parses a function definition.
@@ -899,7 +900,7 @@ ASTNode *parse_function(ParserContext *ctx, Lexer *l, int is_async);
 /**
  * @brief Parses a struct definition.
  */
-ASTNode *parse_struct(ParserContext *ctx, Lexer *l, int is_union);
+ASTNode *parse_struct(ParserContext *ctx, Lexer *l, int is_union, int is_opaque);
 
 /**
  * @brief Parses an enum definition.
