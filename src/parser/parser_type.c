@@ -72,82 +72,8 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
             }
 
             char *suffix = token_strdup(next);
-            char *resolved_suffix = suffix;
-
-            // Map Zen Primitive suffixes to C types to match Generic Instantiation
-            if (strcmp(suffix, "I32") == 0)
-            {
-                resolved_suffix = "int32_t";
-            }
-            else if (strcmp(suffix, "U32") == 0)
-            {
-                resolved_suffix = "uint32_t";
-            }
-            else if (strcmp(suffix, "I8") == 0)
-            {
-                resolved_suffix = "int8_t";
-            }
-            else if (strcmp(suffix, "U8") == 0)
-            {
-                resolved_suffix = "uint8_t";
-            }
-            else if (strcmp(suffix, "I16") == 0)
-            {
-                resolved_suffix = "int16_t";
-            }
-            else if (strcmp(suffix, "U16") == 0)
-            {
-                resolved_suffix = "uint16_t";
-            }
-            else if (strcmp(suffix, "I64") == 0)
-            {
-                resolved_suffix = "int64_t";
-            }
-            else if (strcmp(suffix, "U64") == 0)
-            {
-                resolved_suffix = "uint64_t";
-            }
-            // Lowercase aliases
-            else if (strcmp(suffix, "i8") == 0)
-            {
-                resolved_suffix = "int8_t";
-            }
-            else if (strcmp(suffix, "u8") == 0)
-            {
-                resolved_suffix = "uint8_t";
-            }
-            else if (strcmp(suffix, "i16") == 0)
-            {
-                resolved_suffix = "int16_t";
-            }
-            else if (strcmp(suffix, "u16") == 0)
-            {
-                resolved_suffix = "uint16_t";
-            }
-            else if (strcmp(suffix, "i32") == 0)
-            {
-                resolved_suffix = "int32_t";
-            }
-            else if (strcmp(suffix, "u32") == 0)
-            {
-                resolved_suffix = "uint32_t";
-            }
-            else if (strcmp(suffix, "i64") == 0)
-            {
-                resolved_suffix = "int64_t";
-            }
-            else if (strcmp(suffix, "u64") == 0)
-            {
-                resolved_suffix = "uint64_t";
-            }
-            else if (strcmp(suffix, "usize") == 0)
-            {
-                resolved_suffix = "size_t";
-            }
-            else if (strcmp(suffix, "string") == 0)
-            {
-                resolved_suffix = "char*";
-            }
+            // Map aliases (I32 -> int32_t, string -> char*) using centralized logic
+            const char *resolved_suffix = normalize_type_name(suffix);
 
             // Check if 'name' is a module alias (e.g., m::Vector)
             Module *mod = find_module(ctx, name);
@@ -177,14 +103,6 @@ Type *parse_type_base(ParserContext *ctx, Lexer *l)
             }
 
             free(name);
-            if (suffix != resolved_suffix)
-            {
-                free(suffix); // Only free if we didn't remap
-            }
-            else
-            {
-                free(suffix);
-            }
 
             name = merged;
         }

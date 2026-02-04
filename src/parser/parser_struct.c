@@ -268,6 +268,13 @@ ASTNode *parse_impl(ParserContext *ctx, Lexer *l)
     Token t1 = lexer_next(l);
     char *name1 = token_strdup(t1);
 
+    // Map primitive types to their C representation for correct mangling
+    // Normalize type name (e.g. int -> int32_t)
+    const char *normalized = normalize_type_name(name1);
+    char *final_name = strdup(normalized);
+    free(name1);
+    name1 = final_name;
+
     char *gen_param = NULL;
     // Check for <T> on the struct name
     if (lexer_peek(l).type == TOK_LANGLE)

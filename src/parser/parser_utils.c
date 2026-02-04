@@ -1756,35 +1756,7 @@ ASTNode *copy_ast_replacing(ASTNode *n, const char *p, const char *c, const char
             char *replaced = replace_type_str(n->size_of.target_type, p, c, os, ns);
             if (replaced && strchr(replaced, '<'))
             {
-                char *src = replaced;
-                char *mangled = xmalloc(strlen(src) * 2 + 1);
-                char *dst = mangled;
-                while (*src)
-                {
-                    if (*src == '<' || *src == ',')
-                    {
-                        *dst++ = '_';
-                        while (*(src + 1) == ' ')
-                        {
-                            src++; // skip space
-                        }
-                    }
-                    else if (*src == '>')
-                    {
-                        // skip
-                    }
-                    else if (*src == '*')
-                    {
-                        strcpy(dst, "Ptr");
-                        dst += 3;
-                    }
-                    else if (!isspace(*src))
-                    {
-                        *dst++ = *src;
-                    }
-                    src++;
-                }
-                *dst = 0;
+                char *mangled = sanitize_mangled_name(replaced);
                 free(replaced);
                 replaced = mangled;
             }
@@ -1817,9 +1789,13 @@ char *sanitize_mangled_name(const char *s)
             strcpy(p, "Ptr");
             p += 3;
         }
-        else if (*s == ' ')
+        else if (*s == '<' || *s == ',' || *s == ' ')
         {
             *p++ = '_';
+        }
+        else if (*s == '>' || *s == '&')
+        {
+            // Skip > and & (often used in references) to keep names clean
         }
         else if ((*s >= 'a' && *s <= 'z') || (*s >= 'A' && *s <= 'Z') || (*s >= '0' && *s <= '9') ||
                  *s == '_')
@@ -3477,7 +3453,8 @@ char *parse_and_convert_args(ParserContext *ctx, Lexer *l, char ***defaults_out,
                 {
                     Type *st = NULL;
                     // Check for primitives to avoid creating struct int*
-                    if (strcmp(ctx->current_impl_struct, "int") == 0)
+                    if (strcmp(ctx->current_impl_struct, "int") == 0 ||
+                        strcmp(ctx->current_impl_struct, "int32_t") == 0)
                     {
                         st = type_new(TYPE_INT);
                     }
@@ -3787,4 +3764,83 @@ int validate_types(ParserContext *ctx)
         u = u->next;
     }
     return errors == 0;
+}
+
+const char *normalize_type_name(const char *name)
+{
+    if (!name)
+    {
+        return NULL;
+    }
+
+    // Zen Primitives & Aliases
+    if (strcmp(name, "int") == 0)
+    {
+        return "int32_t";
+    }
+    if (strcmp(name, "uint") == 0)
+    {
+        return "uint32_t";
+    }
+    if (strcmp(name, "short") == 0)
+    {
+        return "int16_t";
+    }
+    if (strcmp(name, "ushort") == 0)
+    {
+        return "uint16_t";
+    }
+    if (strcmp(name, "long") == 0)
+    {
+        return "int64_t";
+    }
+    if (strcmp(name, "ulong") == 0)
+    {
+        return "uint64_t";
+    }
+
+    // Terse aliases
+    if (strcmp(name, "i8") == 0 || strcmp(name, "I8") == 0)
+    {
+        return "int8_t";
+    }
+    if (strcmp(name, "u8") == 0 || strcmp(name, "U8") == 0)
+    {
+        return "uint8_t";
+    }
+    if (strcmp(name, "i16") == 0 || strcmp(name, "I16") == 0)
+    {
+        return "int16_t";
+    }
+    if (strcmp(name, "u16") == 0 || strcmp(name, "U16") == 0)
+    {
+        return "uint16_t";
+    }
+    if (strcmp(name, "i32") == 0 || strcmp(name, "I32") == 0)
+    {
+        return "int32_t";
+    }
+    if (strcmp(name, "u32") == 0 || strcmp(name, "U32") == 0)
+    {
+        return "uint32_t";
+    }
+    if (strcmp(name, "i64") == 0 || strcmp(name, "I64") == 0)
+    {
+        return "int64_t";
+    }
+    if (strcmp(name, "u64") == 0 || strcmp(name, "U64") == 0)
+    {
+        return "uint64_t";
+    }
+
+    if (strcmp(name, "usize") == 0)
+    {
+        return "size_t";
+    }
+    if (strcmp(name, "string") == 0)
+    {
+        return "char*";
+    }
+
+    return name;
 }

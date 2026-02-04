@@ -483,9 +483,22 @@ void codegen_expression(ParserContext *ctx, ASTNode *node, FILE *out)
                     }
                 }
 
-                if (!strchr(type, '*') && target->type == NODE_EXPR_CALL)
+                if (!strchr(type, '*') &&
+                    (target->type == NODE_EXPR_CALL || target->type == NODE_EXPR_LITERAL ||
+                     target->type == NODE_EXPR_BINARY || target->type == NODE_EXPR_UNARY ||
+                     target->type == NODE_EXPR_CAST))
                 {
-                    char *type_mangled = type;
+                    char *type_mangled = (char *)normalize_type_name(type);
+                    if (type_mangled != type)
+                    {                             // if changed
+                        mangled_base = "int32_t"; // Hack for now, assuming int -> int32_t
+                        // ideally mangled_base should be derived from type_mangled
+                        if (strcmp(type_mangled, "int32_t") == 0)
+                        {
+                            mangled_base = "int32_t";
+                        }
+                    }
+
                     char type_buf[256];
                     char *t_lt = strchr(type, '<');
                     if (t_lt)
@@ -1271,9 +1284,10 @@ void codegen_expression(ParserContext *ctx, ASTNode *node, FILE *out)
         {
             mapped = "unsigned char";
         }
-        else if (strcmp(t, "int") == 0)
+        const char *norm = normalize_type_name(t);
+        if (norm != t)
         {
-            mapped = "int32_t";
+            mapped = norm;
         }
         else if (strcmp(t, "uint") == 0)
         {
@@ -1322,13 +1336,17 @@ void codegen_expression(ParserContext *ctx, ASTNode *node, FILE *out)
             {
                 mapped = "unsigned char";
             }
-            else if (strcmp(t, "int") == 0)
+            else
             {
-                mapped = "int32_t"; // Strict mapping
-            }
-            else if (strcmp(t, "uint") == 0)
-            {
-                mapped = "unsigned int"; // uint alias
+                const char *norm = normalize_type_name(t);
+                if (norm != t)
+                {
+                    mapped = norm;
+                }
+                else if (strcmp(t, "uint") == 0)
+                {
+                    mapped = "unsigned int";
+                }
             }
 
             fprintf(out, "sizeof(%s)", mapped);

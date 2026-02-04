@@ -456,6 +456,11 @@ ZenSymbol *find_symbol_entry(ParserContext *ctx, const char *n);
 ZenSymbol *find_symbol_in_all(ParserContext *ctx, const char *n);
 char *find_similar_symbol(ParserContext *ctx, const char *name);
 
+/**
+ * @brief Normalizes a type name (e.g., "int" -> "int32_t").
+ */
+const char *normalize_type_name(const char *name);
+
 // Function registry
 
 /**

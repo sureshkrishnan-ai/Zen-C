@@ -169,10 +169,9 @@ int is_type_copy(ParserContext *ctx, Type *t)
         return 0;
 
     case TYPE_ARRAY:
-        // Arrays decay or are fixed size context dependent, but usually not simplistic copy
-        // For Zen-C safety, let's treat them as Copy if they are treated as pointers,
-        // but if it's a value assignment, C doesn't support it anyway unless wrapped in struct.
-        return 0;
+        // Fixed-size arrays of Copy types are themselves Copy
+        // This allows reusing stack buffers like char[32] without move errors
+        return is_type_copy(ctx, t->inner);
 
     case TYPE_ALIAS:
         if (t->alias.is_opaque_alias)

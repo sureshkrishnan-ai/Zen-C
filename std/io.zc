@@ -119,3 +119,26 @@ fn readln() -> char* {
     line[len] = 0;
     return line;
 }
+
+// Integer to string conversion
+// Returns a static buffer - NOT thread-safe, use itos_new for heap allocation
+fn itos(n: int) -> char* {
+    static let buffer: char[32];
+    sprintf((char*)buffer, "%d", n);
+    return (char*)buffer;
+}
+
+// Heap-allocated integer to string - caller must free
+fn itos_new(n: int) -> char* {
+    let buffer: char* = malloc(32);
+    if (buffer == NULL) return NULL;
+    sprintf(buffer, "%d", n);
+    return buffer;
+}
+
+// Unsigned integer to string
+fn utos(n: uint) -> char* {
+    static let buffer: char[32];
+    sprintf((char*)buffer, "%u", n);
+    return (char*)buffer;
+}
