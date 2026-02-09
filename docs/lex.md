@@ -107,7 +107,7 @@ CReserved   ::= "auto" | "case" | "char" | "default" | "do" | "double"
               | "extern" | "float" | "inline" | "int" | "long" | "register" 
               | "restrict" | "short" | "signed" | "switch" | "typedef" 
               | "unsigned" | "void" | "_Atomic" | "_Bool" | "_Complex" 
-              | "_Generic" | "_Imaginary" | "_lmaginary" | "_Noreturn" 
+              | "_Generic" | "_Imaginary" | "_Noreturn" 
               | "_Static_assert" | "_Thread_local"
 
 LogicOp     ::= "and" | "or"
