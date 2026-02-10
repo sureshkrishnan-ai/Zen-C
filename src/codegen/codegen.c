@@ -10,6 +10,27 @@
 #include "ast.h"
 #include "zprep_plugin.h"
 
+// Helper to suggest standard library imports for common missing functions
+static const char *get_missing_function_hint(const char *name)
+{
+    if (strcmp(name, "malloc") == 0 || strcmp(name, "free") == 0 || strcmp(name, "calloc") == 0 ||
+        strcmp(name, "realloc") == 0)
+    {
+        return "Include <stdlib.h> or use 'use std::mem'";
+    }
+    if (strcmp(name, "printf") == 0 || strcmp(name, "scanf") == 0 || strcmp(name, "fprintf") == 0 ||
+        strcmp(name, "sprintf") == 0 || strcmp(name, "snprintf") == 0)
+    {
+        return "Include <stdio.h> or use 'use std::io'";
+    }
+    if (strcmp(name, "memset") == 0 || strcmp(name, "memcpy") == 0 || strcmp(name, "strlen") == 0 ||
+        strcmp(name, "strcpy") == 0 || strcmp(name, "strcmp") == 0 || strcmp(name, "strncmp") == 0)
+    {
+        return "Include <string.h>";
+    }
+    return NULL;
+}
+
 // Emit literal expression (int, float, string, char)
 static void codegen_literal_expr(ASTNode *node, FILE *out)
 {
@@ -759,8 +780,18 @@ void codegen_expression(ParserContext *ctx, ASTNode *node, FILE *out)
                     if (!has_c_interop && !is_internal && !is_extern)
                     {
                         Token t = node->call.callee->token;
-                        fprintf(stderr, "Warning at %s:%d:%d: Undefined function '%s'\n",
-                                g_current_filename, t.line, t.col, name);
+                        char msg[256];
+                        snprintf(msg, sizeof(msg), "Undefined function '%s'", name);
+                        const char *hint = get_missing_function_hint(name);
+
+                        if (hint)
+                        {
+                            zwarn_with_suggestion(t, msg, hint);
+                        }
+                        else
+                        {
+                            zwarn_at(t, msg);
+                        }
                     }
                 }
             }

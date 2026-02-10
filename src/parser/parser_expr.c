@@ -4455,6 +4455,12 @@ ASTNode *parse_expr_prec(ParserContext *ctx, Lexer *l, Precedence min_prec)
     {
         Token op = lexer_peek(l);
 
+        if (op.line > l->line && op.type == TOK_OP &&
+            (is_token(op, "*") || is_token(op, "&") || is_token(op, "+") || is_token(op, "-")))
+        {
+            break;
+        }
+
         Precedence prec = get_token_precedence(op);
 
         // Handle postfix ++ and -- (highest postfix precedence)
