@@ -30,7 +30,7 @@ static void emit_freestanding_preamble(FILE *out)
           "unsigned short: \"%u\", int: \"%d\", unsigned int: \"%u\", "
           "long: \"%ld\", unsigned long: \"%lu\", long long: \"%lld\", "
           "unsigned long long: \"%llu\", float: \"%f\", double: \"%f\", "
-          "char*: \"%s\", void*: \"%p\")\n",
+          "char*: \"%s\", const char*: \"%s\", void*: \"%p\")\n",
           out);
     fputs("#define _z_arg(x) _Generic((x), _Bool: _z_bool_str(x), default: (x))\n", out);
     fputs("typedef struct { void *func; void *ctx; } z_closure_T;\n", out);

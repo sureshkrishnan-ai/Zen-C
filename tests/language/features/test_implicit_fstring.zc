@@ -6,6 +6,12 @@ test "implicit_fstring_interpolation" {
     assert(strcmp(s, "123") == 0, "Implicit f-string failed");
 }
 
+test "with_const_char_ptr" {
+    let a: const char* = "test";
+    let s = "Text: {a}";
+    assert(strcmp(s, "Text: test") == 0, "With const char* f-string failed");
+}
+
 test "implicit_fstring_complex" {
     let a = 10;
     let b = 20;

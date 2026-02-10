@@ -73,7 +73,7 @@
     "unsigned short: \"%u\", int: \"%d\", unsigned int: \"%u\", "                                  \
     "long: \"%ld\", unsigned long: \"%lu\", long long: \"%lld\", "                                 \
     "unsigned long long: \"%llu\", float: \"%f\", double: \"%f\", "                                \
-    "char*: \"%s\", void*: \"%p\" _z_objc_map)\n"
+    "char*: \"%s\", const char*: \"%s\", void*: \"%p\" _z_objc_map)\n"
 
 #define ZC_C_ARG_GENERIC_STR                                                                       \
     "#define _z_arg(x) _Generic((x), _Bool: _z_bool_str(x) _z_objc_arg_map(x), default: (x))\n"
