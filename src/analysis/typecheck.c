@@ -980,8 +980,42 @@ static void check_node(TypeChecker *tc, ASTNode *node)
                                     "Condition must be a truthy type", hints);
             }
         }
+
+        MoveState *initial_state = tc->pctx->move_state;
+
+        if (initial_state)
+        {
+            tc->pctx->move_state = move_state_clone(initial_state);
+        }
         check_node(tc, node->if_stmt.then_body);
-        check_node(tc, node->if_stmt.else_body);
+        MoveState *after_then = tc->pctx->move_state;
+
+        MoveState *after_else = NULL;
+        if (node->if_stmt.else_body)
+        {
+            if (initial_state)
+            {
+                tc->pctx->move_state = move_state_clone(initial_state);
+            }
+            check_node(tc, node->if_stmt.else_body);
+            after_else = tc->pctx->move_state;
+        }
+
+        tc->pctx->move_state = initial_state;
+
+        if (initial_state)
+        {
+            move_state_merge(initial_state, after_then, after_else);
+
+            if (after_then)
+            {
+                move_state_free(after_then);
+            }
+            if (after_else)
+            {
+                move_state_free(after_else);
+            }
+        }
         break;
     case NODE_MATCH:
         check_node(tc, node->match_stmt.expr);
@@ -1336,8 +1370,27 @@ int check_program(ParserContext *ctx, ASTNode *root)
     TypeChecker tc = {0};
     tc.pctx = ctx;
 
+    // Initialize Flow Analysis State
+    // If we already have one (e.g. from previous pass), reuse/reset?
+    // Usually check_program is top level.
+    if (!ctx->move_state)
+    {
+        ctx->move_state = move_state_create(NULL);
+    }
+
     printf("[TypeCheck] Starting semantic analysis...\n");
     check_node(&tc, root);
+
+    // Clean up flow state
+    // We can keep it if we want LSP to query it, but for now free it.
+    // Or maybe keep it in ctx and free in parser cleanup?
+    // Let's keep it for now, or free if this is a one-shot check.
+    // Given the memory management of this compiler seems manual/arena-less for this:
+    if (ctx->move_state)
+    {
+        move_state_free(ctx->move_state);
+        ctx->move_state = NULL;
+    }
 
     if (tc.error_count > 0)
     {

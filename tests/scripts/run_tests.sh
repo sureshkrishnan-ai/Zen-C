@@ -21,10 +21,13 @@ FAILED_TESTS=""
 
 # Display which compiler is being used
 CC_NAME="gcc (default)"
+USE_TYPECHECK=0
 for arg in "$@"; do
     if [ "$prev_arg" = "--cc" ]; then
         CC_NAME="$arg"
-        break
+    fi
+    if [ "$arg" = "--typecheck" ]; then
+        USE_TYPECHECK=1
     fi
     prev_arg="$arg"
 done
@@ -48,6 +51,14 @@ while read -r test_file; do
         if [[ "$test_file" == *"test_attributes.zc"* ]]; then
             echo "Skipping $test_file (Constructor attribute not supported by TCC)"
             continue
+        fi
+    fi
+
+    # Skip tests that require typechecking if not enabled
+    if grep -q "// REQUIRE: TYPECHECK" "$test_file"; then
+        if [ $USE_TYPECHECK -eq 0 ]; then
+             echo "Skipping $test_file (requires --typecheck)"
+             continue
         fi
     fi
 

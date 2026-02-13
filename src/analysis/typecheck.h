@@ -4,6 +4,8 @@
 #include "ast.h"
 #include "parser.h"
 
+struct MoveState; // Forward declaration
+
 // Type Checker Context
 // Holds the state during the semantic analysis pass.
 // Unlike the parser, this focuses on semantic validity (types, definitions).
@@ -20,6 +22,9 @@ typedef struct TypeChecker
     ASTNode *current_func; ///< Current function being checked (for return type checks).
     int error_count;       ///< Number of type errors found.
     int warning_count;     // Number of recommendations/warnings.
+
+    // Flow Analysis State
+    struct MoveState *move_state; ///< Current state of moved variables.
 } TypeChecker;
 
 /**

@@ -1080,7 +1080,6 @@ ASTNode *parse_return(ParserContext *ctx, Lexer *l)
             if (n->ret.value && n->ret.value->type == NODE_EXPR_VAR)
             {
                 ZenSymbol *sym = find_symbol_entry(ctx, n->ret.value->var_ref.name);
-                check_use_validity(NULL, n->ret.value, sym);
             }
         }
     }

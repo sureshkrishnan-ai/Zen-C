@@ -4,6 +4,69 @@
 #include "../parser/parser.h"
 #include "typecheck.h"
 
+// Forward declaration
+struct TypeChecker;
+
+/**
+ * @brief Status of a moved variable in a specific flow path.
+ */
+typedef enum
+{
+    MOVE_STATE_VALID,
+    MOVE_STATE_MOVED,
+    MOVE_STATE_MAYBE_MOVED // Used when merging diverging paths (e.g., if/else)
+} MoveStatus;
+
+/**
+ * @brief Linked list of tracked moved symbols in the current state.
+ */
+typedef struct MoveEntry
+{
+    char *symbol_name;
+    MoveStatus status;
+    Token moved_at; // For error reporting
+    struct MoveEntry *next;
+} MoveEntry;
+
+/**
+ * @brief Represents the state of moves at a specific point in control flow.
+ */
+typedef struct MoveState
+{
+    struct MoveEntry *entries; // List of tracked symbols
+    struct MoveState *parent;  // Parent state (for scoping/forking)
+} MoveState;
+
+/**
+ * @brief Creates a new move state, optionally inheriting from a parent.
+ */
+MoveState *move_state_create(MoveState *parent);
+
+/**
+ * @brief Deep clones a move state (for branching).
+ */
+MoveState *move_state_clone(MoveState *src);
+
+/**
+ * @brief Merges two branches into a target state.
+ *
+ * Logic:
+ * - Valid + Valid -> Valid
+ * - Moved + Moved -> Moved
+ * - Moved + Valid -> Maybe Moved (Error on use)
+ */
+void move_state_merge(MoveState *target, MoveState *a, MoveState *b);
+
+/**
+ * @brief Frees a move state.
+ */
+void move_state_free(MoveState *state);
+
+/**
+ * @brief Check if a symbol is moved in the given state (or parents).
+ */
+MoveStatus get_move_status(MoveState *state, const char *name);
+
 /**
  * @brief Determines if a type is safe to copy (implements Copy or is a primitive).
  *

@@ -772,13 +772,6 @@ ASTNode *parse_var_decl(ParserContext *ctx, Lexer *l)
     if (init && init->type == NODE_EXPR_VAR)
     {
         ZenSymbol *s = find_symbol_entry(ctx, init->var_ref.name);
-        if (s)
-        {
-            // Check if source is valid (not already moved)
-            check_use_validity(NULL, init, s);
-            // Mark source as moved (if not Copy)
-            mark_symbol_moved(ctx, s, init);
-        }
     }
 
     // Global detection: Either no scope (yet) OR root scope (no parent)

@@ -134,7 +134,6 @@ static void check_move_usage(ParserContext *ctx, ASTNode *node, Token t)
     if (node->type == NODE_EXPR_VAR)
     {
         ZenSymbol *sym = find_symbol_entry(ctx, node->var_ref.name);
-        check_use_validity(NULL, node, sym);
     }
 }
 

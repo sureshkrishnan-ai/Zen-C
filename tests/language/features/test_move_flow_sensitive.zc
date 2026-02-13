@@ -1,0 +1,29 @@
+// EXPECT: FAIL
+// REQUIRE: TYPECHECK
+
+struct Mover {
+    val: int
+}
+
+fn consume(m: Mover) {
+    // consumes
+}
+
+fn main() {
+    let m = Mover { val: 10 }
+    let k = Mover { val: 20 }
+    
+    if (true) {
+        consume(m) 
+    } else {
+        consume(m) 
+    }
+
+    consume(m)
+    
+    if (true) {
+        consume(k)
+    }
+    
+    consume(k) 
+}

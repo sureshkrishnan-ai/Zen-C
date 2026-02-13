@@ -29,6 +29,7 @@ typedef enum
 // Main entry points
 // Forward declarations
 struct ParserContext;
+struct MoveState;
 typedef struct ParserContext ParserContext;
 
 /**
@@ -349,6 +350,9 @@ struct ParserContext
     struct TypeUsage *pending_type_validations; ///< List of types to validate after parsing.
     int is_speculative;  ///< Flag to suppress side effects during speculative parsing.
     int silent_warnings; ///< Suppress warnings (e.g., during codegen interpolation).
+
+    // Flow Analysis (Move Semantics)
+    struct MoveState *move_state;
 };
 
 typedef struct TypeUsage
