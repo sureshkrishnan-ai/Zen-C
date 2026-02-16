@@ -3939,30 +3939,21 @@ char *run_comptime_block(ParserContext *ctx, Lexer *l)
     fprintf(f, "return 0;\n}\n");
     fclose(f);
 
-    char cmd[4096];
+    char cmdbuf[4096];
     char bin[1024];
-    if (z_is_windows())
-    {
-        sprintf(bin, "%s.exe", filename);
-    }
-    else
-    {
-        sprintf(bin, "%s.bin", filename);
-    }
-    sprintf(cmd, "%s %s -o %s -Istd -Istd/third-party/tre/include", g_config.cc, filename, bin);
-#ifdef _WIN32
-    // Ensure we link against TRE implementation if needed (or include it source-wise if not header-only)
-    // For now, let's assume source inclusion if 'regex' is used, or just add the include path.
-    // If std sources are included, they might need 'tre/lib/*.c' if not using a static lib.
-    // However, for simple comptime blocks, just flags might be enough.
-    // Let's also link against tre sources just in case, or relying on single-file compilation
-    strcat(cmd, " std/third-party/tre/lib/*.c"); 
-#endif
+
+    sprintf(bin, "%s%s", filename, z_get_exe_ext());
+
+    // Construct compilation command
+    sprintf(cmdbuf, "%s %s -o %s -Istd -Istd/third-party/tre/include%s", g_config.cc, filename, bin,
+            z_get_comptime_link_flags());
+
     if (!g_config.verbose)
     {
-        strcat(cmd, " > /dev/null 2>&1");
+        strcat(cmdbuf, z_get_null_redirect());
     }
-    int res = system(cmd);
+
+    int res = system(cmdbuf);
     if (res != 0)
     {
         zpanic_at(lexer_peek(l), "Comptime compilation failed for:\n%s", code);
@@ -3971,17 +3962,10 @@ char *run_comptime_block(ParserContext *ctx, Lexer *l)
     char out_file[1024];
     sprintf(out_file, "%s.out", filename);
 
-    // Platform-neutral execution
-    if (z_is_windows())
-    {
-        sprintf(cmd, "%s > %s", bin, out_file);
-    }
-    else
-    {
-        sprintf(cmd, "./%s > %s", bin, out_file);
-    }
+    // Execution command
+    sprintf(cmdbuf, "%s%s > %s", z_get_run_prefix(), bin, out_file);
 
-    if (system(cmd) != 0)
+    if (system(cmdbuf) != 0)
     {
         zpanic_at(lexer_peek(l), "Comptime execution failed");
     }

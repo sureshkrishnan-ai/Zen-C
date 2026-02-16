@@ -61,6 +61,42 @@ static inline char *z_path_last_sep(const char *path)
     return last_slash;
 }
 
+static inline const char *z_get_exe_ext(void)
+{
+#ifdef _WIN32
+    return ".exe";
+#else
+    return ".bin";
+#endif
+}
+
+static inline const char *z_get_null_redirect(void)
+{
+#ifdef _WIN32
+    return " > NUL 2>&1";
+#else
+    return " > /dev/null 2>&1";
+#endif
+}
+
+static inline const char *z_get_comptime_link_flags(void)
+{
+#ifdef _WIN32
+    return " std/third-party/tre/lib/*.c";
+#else
+    return "";
+#endif
+}
+
+static inline const char *z_get_run_prefix(void)
+{
+#ifdef _WIN32
+    return "";
+#else
+    return "./";
+#endif
+}
+
 // **ZEN VERSION**
 #ifndef ZEN_VERSION
 #define ZEN_VERSION "0.1.0" ///< Zen-C version.
