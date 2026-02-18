@@ -1023,7 +1023,6 @@ ASTNode *parse_return(ParserContext *ctx, Lexer *l)
 {
     Token return_token = lexer_next(l); // eat 'return'
 
-    // Error if return is used inside a defer block
     if (ctx->in_defer_block)
     {
         zpanic_at(return_token, "'return' is not allowed inside a 'defer' block");
@@ -1034,18 +1033,13 @@ ASTNode *parse_return(ParserContext *ctx, Lexer *l)
 
     int handled = 0;
 
-    // 1. Check for Tuple Literal Return: return (a, b);
-    // Condition: Function returns Tuple_..., starts with '(', and contains ',' at
-    // top level
     if (curr_func_ret && strncmp(curr_func_ret, "Tuple_", 6) == 0 &&
         lexer_peek(l).type == TOK_LPAREN)
     {
 
-        // Peek ahead to distinguish "(expr)" from "(a, b)"
         int is_tuple_lit = 0;
         int depth = 0;
 
-        // Just scan tokens manually using a temp lexer to be safe
         Lexer temp_l = *l;
 
         while (1)
@@ -1057,7 +1051,7 @@ ASTNode *parse_return(ParserContext *ctx, Lexer *l)
             }
             if (t.type == TOK_SEMICOLON)
             {
-                break; // Safety break
+                break;
             }
 
             if (t.type == TOK_LPAREN)
@@ -1069,12 +1063,10 @@ ASTNode *parse_return(ParserContext *ctx, Lexer *l)
                 depth--;
                 if (depth == 0)
                 {
-                    break; // End of potential tuple
+                    break;
                 }
             }
 
-            // If we find a comma at depth 1 (inside the first parens), it's a tuple
-            // literal!
             if (depth == 1 && t.type == TOK_COMMA)
             {
                 is_tuple_lit = 1;
@@ -1091,18 +1083,7 @@ ASTNode *parse_return(ParserContext *ctx, Lexer *l)
             handled = 1;
         }
     }
-    // 2. Check for Array Literal Return: return [a, b];
-    else if (curr_func_ret && strncmp(curr_func_ret, "Slice_", 6) == 0 &&
-             lexer_peek(l).type == TOK_LBRACKET)
-    {
-        char *code = parse_array_literal(ctx, l, curr_func_ret);
-        ASTNode *raw = ast_create(NODE_RAW_STMT);
-        raw->raw_stmt.content = code;
-        n->ret.value = raw;
-        handled = 1;
-    }
 
-    // 3. Standard Expression Return
     if (!handled)
     {
         if (lexer_peek(l).type == TOK_SEMICOLON)
@@ -1112,10 +1093,6 @@ ASTNode *parse_return(ParserContext *ctx, Lexer *l)
         else
         {
             n->ret.value = parse_expression(ctx, l);
-            if (n->ret.value && n->ret.value->type == NODE_EXPR_VAR)
-            {
-                // Move check placeholder: find_symbol_entry(ctx, n->ret.value->var_ref.name);
-            }
         }
     }
 

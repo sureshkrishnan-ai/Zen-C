@@ -1508,6 +1508,48 @@ void codegen_node_single(ParserContext *ctx, ASTNode *node, FILE *out)
         int has_defers = (defer_count > func_defer_boundary);
         int handled = 0;
 
+        if (node->ret.value && node->ret.value->type == NODE_EXPR_ARRAY_LITERAL &&
+            g_current_func_ret_type && strncmp(g_current_func_ret_type, "Slice_", 6) == 0)
+        {
+            // Heap allocation for slice literals to prevent use-after-return
+            ASTNode *arr = node->ret.value;
+            int count = arr->array_literal.count;
+            char *elem_type = "void*"; // fallback
+
+            // Try to deduce element type from first element or context
+            if (arr->array_literal.elements && arr->array_literal.elements->type_info)
+            {
+                elem_type = codegen_type_to_string(arr->array_literal.elements->type_info);
+            }
+            else if (arr->type_info && arr->type_info->inner)
+            {
+                elem_type = codegen_type_to_string(arr->type_info->inner);
+            }
+            else
+            {
+                // Fallback: parse from Slice_Type
+                elem_type = xstrdup(g_current_func_ret_type + 6);
+            }
+
+            fprintf(out, "    { %s *_tmp_arr = malloc(%d * sizeof(%s));\n", elem_type, count,
+                    elem_type);
+
+            ASTNode *elem = arr->array_literal.elements;
+            int idx = 0;
+            while (elem)
+            {
+                fprintf(out, "    _tmp_arr[%d] = ", idx++);
+                codegen_expression(ctx, elem, out);
+                fprintf(out, ";\n");
+                elem = elem->next;
+            }
+
+            fprintf(out, "    return (%s){.data = _tmp_arr, .len = %d, .cap = %d};\n",
+                    g_current_func_ret_type, count, count);
+            fprintf(out, "    }\n");
+            handled = 1;
+        }
+
         if (node->ret.value && node->ret.value->type == NODE_EXPR_VAR)
         {
             char *tname = infer_type(ctx, node->ret.value);
