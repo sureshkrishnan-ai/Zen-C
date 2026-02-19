@@ -149,6 +149,47 @@ static void emit_pattern_condition(ParserContext *ctx, const char *pattern, int 
     }
 }
 
+// Helper
+static bool is_int_type(TypeKind k)
+{
+    switch (k)
+    {
+        case TYPE_CHAR:
+        case TYPE_I8:
+        case TYPE_U8:
+        case TYPE_I16:
+        case TYPE_U16:
+        case TYPE_I32:
+        case TYPE_U32:
+        case TYPE_I64:
+        case TYPE_U64:
+        case TYPE_I128:
+        case TYPE_U128:
+        case TYPE_INT:
+        case TYPE_UINT:
+        case TYPE_USIZE:
+        case TYPE_ISIZE:
+        case TYPE_BYTE:
+        case TYPE_RUNE:
+        case TYPE_ENUM:
+        case TYPE_C_INT:
+        case TYPE_C_UINT:
+        case TYPE_C_LONG:
+        case TYPE_C_ULONG:
+        case TYPE_C_LONG_LONG:
+        case TYPE_C_ULONG_LONG:
+        case TYPE_C_SHORT:
+        case TYPE_C_USHORT:
+        case TYPE_C_CHAR:
+        case TYPE_C_UCHAR:
+        case TYPE_BITINT:
+        case TYPE_UBITINT:
+            return true;
+        default:
+            return false;
+    }
+}
+
 void codegen_match_internal(ParserContext *ctx, ASTNode *node, FILE *out, int use_result)
 {
     int id = tmp_counter++;
@@ -975,25 +1016,25 @@ void codegen_node_single(ParserContext *ctx, ASTNode *node, FILE *out)
                 else if (node->type_info)
                 {
                     TypeKind k = node->type_info->kind;
-                    // Zero initialize variables by default to prevent garbage,
-                    // but ONLY for integer types, arrays, and structs.
-                    // Floats and pointers are left uninitialized (matching C behavior).
                     if (k == TYPE_ARRAY || k == TYPE_STRUCT)
                     {
                         fprintf(out, " = {0}");
                     }
-                    else if (k == TYPE_BOOL || k == TYPE_CHAR || k == TYPE_I8 || k == TYPE_U8 ||
-                             k == TYPE_I16 || k == TYPE_U16 || k == TYPE_I32 || k == TYPE_U32 ||
-                             k == TYPE_I64 || k == TYPE_U64 || k == TYPE_I128 || k == TYPE_U128 ||
-                             k == TYPE_INT || k == TYPE_UINT || k == TYPE_USIZE ||
-                             k == TYPE_ISIZE || k == TYPE_BYTE || k == TYPE_RUNE ||
-                             k == TYPE_ENUM || k == TYPE_C_INT || k == TYPE_C_UINT ||
-                             k == TYPE_C_LONG || k == TYPE_C_ULONG || k == TYPE_C_LONG_LONG ||
-                             k == TYPE_C_ULONG_LONG || k == TYPE_C_SHORT || k == TYPE_C_USHORT ||
-                             k == TYPE_C_CHAR || k == TYPE_C_UCHAR || k == TYPE_BITINT ||
-                             k == TYPE_UBITINT)
+                    else if (is_int_type(k))
                     {
                         fprintf(out, " = 0");
+                    }
+                    else if (k == TYPE_F32 || k == TYPE_FLOAT)
+                    {
+                        fprintf(out, " = 0.0f");
+                    }
+                    else if (k == TYPE_F64)
+                    {
+                        fprintf(out, " = 0.0");
+                    }
+                    else if (k == TYPE_BOOL)
+                    {
+                        fprintf(out, " = false");
                     }
                 }
                 fprintf(out, ";\n");
